@@ -7,9 +7,7 @@ output:
     keep_md: yes
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+
 
 ## Purpose
 
@@ -32,16 +30,37 @@ The function works for `object` of class:
 
 Source the script:
 
-```{r cars}
+
+```r
 library(devtools)
 source_url("https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/Gelbach_decompo/dec_covar.R")
 ```
 
-```{r}
+```
+## SHA-1 hash of file is cc7ac4d4dcdb89a4df6c70ce66999c555dbd62ad
+```
+
+
+```r
 ## run a OLS with built-in data freeny
 model_full_1 <- lm(y ~ lag.quarterly.revenue + price.index + income.level + market.potential, data=freeny)
 
 ## use decomposition:
 dec_covar(object = model_full_1, var_main = "lag.quarterly.revenue")
+```
+
+```
+##                               variable      gamma     beta_K     delta
+## 1                          price.index -0.4182537 -0.7542401 0.3154637
+## 2                         income.level  0.3747902  0.7674609 0.2876368
+## 3                     market.potential  0.2038996  1.3305577 0.2713002
+##                                  Total         NA         NA 0.8744008
+## lag.quarterly.revenue            Check         NA         NA 0.8744008
+##                           perc
+## 1                     36.07770
+## 2                     32.89531
+## 3                     31.02699
+##                             NA
+## lag.quarterly.revenue       NA
 ```
 
