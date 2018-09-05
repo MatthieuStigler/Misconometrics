@@ -302,16 +302,9 @@ dec_covar <- function(object, var_main, format = c("wide", "long")) {
       rename(variable = term,
              gamma= estimate) %>%
       select(covariate, variable, gamma)
-    # gamma <- sapply(reg_aux_all, coef)[var_main,, drop=FALSE]
-    # colnames(gamma) <- var_other
   }
   
   ## Assemble results
-  # gamma_df <- gamma #%>%
-    # as_data_frame() %>%
-    # mutate(variable=var_main) %>%
-    # gather(covariate, gamma, -variable)
-  
   res_df <- data_frame(covariate  = var_other,
                        beta_K = coef(object)[var_other]) %>%
     left_join(gamma_df, by="covariate") %>%
@@ -334,18 +327,7 @@ dec_covar <- function(object, var_main, format = c("wide", "long")) {
     res_df <- res_df_w_tot
   }
   
-  #  data.frame(covariate  = var_other,
-  #                 beta_K = coef(object)[var_other],
-  #                 gamma = t(gamma),
-  #                 row.names = NULL) %>% as.tbl %>%
-  #    gather(variable, value, gamma)
-  # X$delta = X$gamma *  X$beta_K
-  # X$perc <- 100 * X$delta/sum(X$delta)
-  # X <- rbind(X, data.frame(variable = c("Total", "Check"),
-  #                          gamma = c(NA, NA), beta_K = c(NA, NA),
-  #                          delta = c(sum(X$delta), coef(reg_base)[var_main] - coef(object)[var_main]),
-  #                          perc= c(NA, NA)))
-  
+  ## Export results
   res_df
   
 }
