@@ -27,7 +27,7 @@ dec_covar <- function(object, var_main) {
   formu_obj <- formula(object)
   response_var <- get_response(object)
   var_all <- attr(terms(object), "term.labels")
-  var_other <- var_all[var_all!=var_main]
+  var_other <- var_all[! var_all %in% var_main]
   
   ## reg base
   formu_base <- paste(response_var, "~", var_main)
@@ -84,7 +84,7 @@ if(FALSE){
   dec_covar(object=zz, var_main = "log(pc)")
   
   library(lfe)
-  model_felm <- felm(log(gsp) ~ log(pcap) + log(pc) + log(emp) + unemp |state, data = Produc)
+  model_felm <- felm(log(gsp) ~ log(pcap) + log(pc) + log(emp) + unemp |state|0|state, data = Produc)
   dec_covar(object=model_felm, var_main = "log(pc)")
   
   ## iv
