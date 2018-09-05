@@ -7,6 +7,9 @@
 #'       toc: true
 #' ---
 
+library(tidyverse)
+library(broom)
+library(Formula)
 
 
 get_response <- function(x)  
@@ -20,7 +23,45 @@ get_response.felm <- function(x) {
   colnames(x$response)
 }
 
-dec_covar <- function(object, var_main) {
+drop_terms <- function(f, dr) {
+  f <- as.Formula(f)
+  n_rhs <- length(f)[2]
+  if(n_rhs==1) {
+    form_rem <- paste(". ~ . -", paste(dr, collapse = " - ")) 
+  } else {
+    terms_by_part <- lapply(1:length(f)[2], function(x) attr(terms(f, rhs=x), "term.labels"))
+    has_terms <- sapply(terms_by_part, function(x) any(dr %in% x))
+    inner <- sapply(has_terms, function(x) if(x) paste(" . -", paste(dr, collapse = " - ")) else ".")
+    form_rem <- paste(". ~ ", paste(inner, collapse = "|")) 
+  }
+  
+  form_rem
+}
+
+update.ivreg <- function (object, formula., ..., evaluate = TRUE) 
+{
+  if (is.null(call <- getCall(object))) 
+    stop("need an object with call component")
+  extras <- match.call(expand.dots = FALSE)$...
+  if (!missing(formula.)) 
+    call$formula <- update(Formula(formula(object)), formula.)
+  if (length(extras)) {
+    existing <- !is.na(match(names(extras), names(call)))
+    for (a in names(extras)[existing]) call[[a]] <- extras[[a]]
+    if (any(!existing)) {
+      call <- c(as.list(call), extras[!existing])
+      call <- as.call(call)
+    }
+  }
+  if (evaluate) 
+    eval(call, parent.frame())
+  else call
+}
+
+
+dec_covar <- function(object, var_main, format = c("wide", "long")) {
+  
+  format <- match.arg(format)
   
   
   ## get var names
@@ -29,35 +70,60 @@ dec_covar <- function(object, var_main) {
   var_all <- attr(terms(object), "term.labels")
   var_other <- var_all[! var_all %in% var_main]
   
-  ## reg base
-  formu_base <- paste(response_var, "~", var_main)
+  ## base regression: on main variable(s) only
+  formu_base <- drop_terms(f=formu_obj, dr=var_other)
   reg_base <- update(object, as.formula(formu_base))
-  # reg_base <- update(object, reformulate(var_main, response_var ))
+  coef_diffs <- tidy(reg_base) %>%
+    filter(term !="(Intercept)") %>%
+    left_join(tidy(object), by="term", suffix = c("_base", "_full")) %>%
+    mutate(diff = estimate_base-estimate_full) %>%
+    select(term, diff)
   
-  ## aux regs
+  
+  ## auxiliary regs: covariates on main regs
   if(inherits(object, "lm")) {
-    string_formula <- sprintf("cbind(%s) ~ %s", toString(var_other), var_main)
+    string_formula <- sprintf("cbind(%s) ~ %s", toString(var_other), paste(var_main, collapse=" + "))
     reg_aux <- update(object, as.formula(string_formula))  
-    gamma <- coef(reg_aux)[var_main,]
+    gamma_df <- coef(reg_aux)[var_main,, drop=FALSE] %>%
+      as_data_frame() %>%
+      mutate(variable=var_main) %>%
+      gather(covariate, gamma, -variable)
   } else {
-    string_formula2 <- sprintf("%s ~ %s", var_other, var_main)
+    string_formula2 <- sprintf("%s ~ %s", var_other, paste(var_main, collapse=" + "))
     reg_aux_all <- lapply(string_formula2, function(x) update(object, as.formula(x))) 
-    coefs <- lapply(reg_aux_all, coef)  
-    gamma <- unlist(coefs)
+    gamma_df <- map2_dfr(reg_aux_all, var_other, ~tidy(.x) %>% mutate(covariate = .y)) %>%
+      filter(term %in% var_main) %>%
+      rename(variable = term,
+             gamma= estimate) %>%
+      select(covariate, variable, gamma)
   }
   
   ## Assemble results
-  X <- data.frame(variable  = var_other,
-                  gamma = gamma,
-                  beta_K = coef(object)[var_other], row.names = NULL)
-  X$delta = X$gamma *  X$beta_K
-  X$perc <- 100 * X$delta/sum(X$delta)
-  X <- rbind(X, data.frame(variable = c("Total", "Check"),
-                           gamma = c(NA, NA), beta_K = c(NA, NA),
-                           delta = c(sum(X$delta), coef(reg_base)[var_main] - coef(object)[var_main]),
-                           perc= c(NA, NA)))
+  res_df <- data_frame(covariate  = var_other,
+                       beta_K = coef(object)[var_other]) %>%
+    left_join(gamma_df, by="covariate") %>%
+    mutate(delta = gamma * beta_K)
   
-  X
+  # wide version in case 
+  if(format == "wide") {
+    res_df_w <- res_df %>%
+      gather(stat, value, gamma, delta) %>%
+      mutate(stat = paste(stat, variable, sep="_")) %>%
+      select(-variable) %>%
+      spread(stat, value) %>%
+      select(covariate, beta_K, starts_with("gamma"), starts_with("delta"))
+    
+    ## add totals and check
+    res_df_w_tot <- res_df_w %>%
+      bind_rows(summarise_at(res_df_w, vars(starts_with("delta")), sum) %>% 
+                  mutate(covariate="Total")) %>%
+      bind_rows(coef_diffs %>% mutate(covariate="Check",
+                                      term = paste("delta_", term, sep="")) %>% spread(term, diff))
+    res_df <- res_df_w_tot
+  }
+  
+  ## Export results
+  res_df
   
 }
 
@@ -97,13 +163,6 @@ if(FALSE){
   model_iv_just <- ivreg(log(packs) ~ log(rprice) + log(rincome) | log(rincome) + tdiff ,
                          data = CigarettesSW, subset = year == "1995")
   dec_covar(object=model_iv_just, var_main = "log(rprice)")
-  
-  coef(model_iv_just)["log(rprice)"]
-  model_iv_just_base <- ivreg(log(packs) ~ log(rprice)  | tdiff ,
-                              data = CigarettesSW, subset = year == "1995")
-  update(model_iv_just, log(packs) ~ log(rprice) |  tdiff )
-  coef(model_iv_just)["log(rprice)"] -
-  coef(model_iv_just_base)["log(rprice)"]
   
   ## get_response
   get_response(model_full_1)

@@ -278,7 +278,7 @@ dec_covar <- function(object, var_main, format = c("wide", "long")) {
   
   ## base regression: on main variable(s) only
   formu_base <- drop_terms(formu_obj, var_other)
-  reg_base <- update(object, as.formula(formu_base))
+  reg_base <- update(object, as.Formula(formu_base))
   coef_diffs <- tidy(reg_base) %>%
     filter(term !="(Intercept)") %>%
     left_join(tidy(object), by="term", suffix = c("_base", "_full")) %>%
