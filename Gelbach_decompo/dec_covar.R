@@ -183,7 +183,7 @@ if(FALSE){
   dec_covar(object = model_full_2, var_main = "Catholic")
   dec_lm2_l <- dec_covar(object = model_full_2, var_main = "Catholic", format="long", add_coefs=TRUE)
   plot_dec(dec_lm2_l)
-  
+
   ## panel
   library(plm)
   data("Produc", package = "plm")
@@ -199,10 +199,10 @@ if(FALSE){
   dec_covar(object=model_felm, var_main = "log(pc)")
   dec_lfe_l <- dec_covar(object=model_felm, var_main = "log(pc)", format="long", add_coefs=TRUE)
   plot_dec(dec_lfe_l)
-  
+
   dec_lfe_k2_l <- dec_covar(object=model_felm, var_main = c("log(pc)","log(pcap)"), format="long", add_coefs=TRUE)
   plot_dec(dec_lfe_k2_l)
-  
+
   ## iv
   library(AER)
   example(ivreg, echo=FALSE)
