@@ -265,10 +265,11 @@ drop_terms <- function(f, dr) {
   form_rem
 }
 
-dec_covar <- function(object, var_main, format = c("wide", "long")) {
+dec_covar <- function(object, var_main, format = c("wide", "long"),
+                      add_coefs = FALSE) {
   
   format <- match.arg(format)
-  
+  if(add_coefs & format == "wide") stop("'add_coefs' only for format = 'long'")
   
   ## get var names
   formu_obj <- formula(object)
@@ -310,6 +311,23 @@ dec_covar <- function(object, var_main, format = c("wide", "long")) {
     left_join(gamma_df, by="covariate") %>%
     mutate(delta = gamma * beta_K)
   
+  ## add coefs in case:
+  if(add_coefs) {
+    betas_main <- data_frame(model = c("full", "base"),
+                      reg =list(full = object,
+                                base = reg_base)) %>%
+      mutate(reg = map(reg, tidy)) %>%
+      unnest(reg) %>%
+      select(model, term, estimate) %>%
+      filter(term %in% var_main) %>%
+      mutate(model = paste("beta_var", model, sep="_")) %>%
+      spread(model, estimate) %>%
+      rename(variable = term)
+    
+    res_df <- res_df %>%
+      left_join(betas_main, by = "variable") 
+  }
+  
   # wide version in case 
   if(format == "wide") {
     res_df_w <- res_df %>%
@@ -348,4 +366,31 @@ update(model_full_1, f3)
 model_full_1 <- lm(y ~ lag.quarterly.revenue + price.index + income.level + market.potential, data=freeny)
 dec_covar2(object = model_full_1, var_main = c("lag.quarterly.revenue", "price.index"))
 dec_covar2(object = model_full_1, var_main = c("lag.quarterly.revenue"))
+
+################################
+#'## Plot
+################################
+
+
+plot_dec <- function(x) {
+  n_var <- length(unique(x$variable))
+  pl <- x %>%
+    mutate(delta_center = beta_var_base - delta) %>%
+    ggplot(aes(x = delta_center, y =covariate)) +
+    geom_point() +
+    geom_segment(aes(x=beta_var_base, xend = delta_center, yend = covariate)) +
+    geom_vline(aes(xintercept = c(beta_var_base)), lty=2, colour="blue")+
+    geom_vline(aes(xintercept = c(beta_var_full)), lty=2) 
+  if(n_var>1) pl <- pl + facet_grid(. ~ variable, scales="free")
+  pl
+}
+
+
+dec_1 <- dec_covar(object = model_full_1, var_main = c("lag.quarterly.revenue"), format="long",
+                   add_coefs = TRUE)
+
+dec_2 <- dec_covar(object = model_full_1, var_main = c("lag.quarterly.revenue", "price.index"), format="long",
+                   add_coefs = TRUE)
+plot_dec(x=dec_1)
+plot_dec(x=dec_2)
 

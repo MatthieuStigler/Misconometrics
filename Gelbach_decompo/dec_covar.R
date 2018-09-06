@@ -59,10 +59,11 @@ update.ivreg <- function (object, formula., ..., evaluate = TRUE)
 }
 
 
-dec_covar <- function(object, var_main, format = c("wide", "long")) {
+dec_covar <- function(object, var_main, format = c("wide", "long"),
+                      add_coefs = FALSE) {
   
   format <- match.arg(format)
-  
+  if(add_coefs & format == "wide") stop("'add_coefs' only for format = 'long'")
   
   ## get var names
   formu_obj <- formula(object)
@@ -81,8 +82,12 @@ dec_covar <- function(object, var_main, format = c("wide", "long")) {
   
   
   ## auxiliary regs: covariates on main regs
-  if(inherits(object, "lm")) {
-    string_formula <- sprintf("cbind(%s) ~ %s", toString(var_other), paste(var_main, collapse=" + "))
+  if(inherits(object, c("lm", "felm"))) {
+    if(inherits(object, "lm")) {
+      string_formula <- sprintf("cbind(%s) ~ %s", toString(var_other), paste(var_main, collapse=" + "))
+    } else {
+      string_formula <- sprintf("%s ~ %s", paste(var_other, collapse=" + "), paste(var_main, collapse=" + "))  
+    }
     reg_aux <- update(object, as.formula(string_formula))  
     gamma_df <- coef(reg_aux)[var_main,, drop=FALSE] %>%
       as_data_frame() %>%
@@ -103,6 +108,23 @@ dec_covar <- function(object, var_main, format = c("wide", "long")) {
                        beta_K = coef(object)[var_other]) %>%
     left_join(gamma_df, by="covariate") %>%
     mutate(delta = gamma * beta_K)
+  
+  ## add coefs in case:
+  if(add_coefs) {
+    betas_main <- data_frame(model = c("full", "base"),
+                             reg =list(full = object,
+                                       base = reg_base)) %>%
+      mutate(reg = map(reg, tidy)) %>%
+      unnest(reg) %>%
+      select(model, term, estimate) %>%
+      filter(term %in% var_main) %>%
+      mutate(model = paste("beta_var", model, sep="_")) %>%
+      spread(model, estimate) %>%
+      rename(variable = term)
+    
+    res_df <- res_df %>%
+      left_join(betas_main, by = "variable") 
+  }
   
   # wide version in case 
   if(format == "wide") {
@@ -127,6 +149,20 @@ dec_covar <- function(object, var_main, format = c("wide", "long")) {
   
 }
 
+plot_dec <- function(x) {
+  n_var <- length(unique(x$variable))
+  pl <- x %>%
+    mutate(delta_center = beta_var_base - delta) %>%
+    ggplot(aes(x = delta_center, y =covariate)) +
+    geom_point() +
+    geom_segment(aes(x=beta_var_base, xend = delta_center, yend = covariate)) +
+    geom_vline(aes(xintercept = c(beta_var_base)), lty=2, colour="blue")+
+    geom_vline(aes(xintercept = c(beta_var_full)), lty=2) 
+  if(n_var>1) pl <- pl + facet_grid(. ~ variable, scales="free")
+  pl
+}
+
+
 #'###############################
 #'## Test
 ################################
@@ -136,10 +172,17 @@ if(FALSE){
   ## lm
   model_full_1 <- lm(y ~ lag.quarterly.revenue + price.index + income.level + market.potential, data=freeny)
   dec_covar(object = model_full_1, var_main = "lag.quarterly.revenue")
+  dec_lm1_l <- dec_covar(object = model_full_1, var_main = "lag.quarterly.revenue", format="long", add_coefs=TRUE)
+  plot_dec(dec_lm1_l)
+  dec_lm1_k2_l <- dec_covar(object = model_full_1, var_main = c("lag.quarterly.revenue", "price.index"),
+                            format="long", add_coefs=TRUE)
+  plot_dec(dec_lm1_k2_l)
+  
   
   model_full_2 <- lm(Fertility ~ . , data=swiss)
   dec_covar(object = model_full_2, var_main = "Catholic")
-
+  dec_lm2_l <- dec_covar(object = model_full_2, var_main = "Catholic", format="long", add_coefs=TRUE)
+  plot_dec(dec_lm2_l)
   
   ## panel
   library(plm)
@@ -148,10 +191,17 @@ if(FALSE){
             data = Produc, index = c("state","year"))
   
   dec_covar(object=zz, var_main = "log(pc)")
+  dec_plm_l <- dec_covar(object=zz, var_main = "log(pc)", format="long", add_coefs=TRUE)
+  plot_dec(dec_plm_l)
   
   library(lfe)
   model_felm <- felm(log(gsp) ~ log(pcap) + log(pc) + log(emp) + unemp |state|0|state, data = Produc)
   dec_covar(object=model_felm, var_main = "log(pc)")
+  dec_lfe_l <- dec_covar(object=model_felm, var_main = "log(pc)", format="long", add_coefs=TRUE)
+  plot_dec(dec_lfe_l)
+  
+  dec_lfe_k2_l <- dec_covar(object=model_felm, var_main = c("log(pc)","log(pcap)"), format="long", add_coefs=TRUE)
+  plot_dec(dec_lfe_k2_l)
   
   ## iv
   library(AER)
@@ -163,6 +213,16 @@ if(FALSE){
   model_iv_just <- ivreg(log(packs) ~ log(rprice) + log(rincome) | log(rincome) + tdiff ,
                          data = CigarettesSW, subset = year == "1995")
   dec_covar(object=model_iv_just, var_main = "log(rprice)")
+  
+  
+  ## in map calls
+  df <- data_frame(data = list(freeny)) %>%
+    mutate(reg = map(data, ~lm(y ~ lag.quarterly.revenue + price.index + income.level + market.potential, data=.)))#,
+           # dec = map(reg, ~update(., y ~ . - lag.quarterly.revenue))) 
+  
+  df %>%
+    mutate(reg2 = map2(reg, data,  function(x,y) {x$call$data <- y ; update(x, y ~  lag.quarterly.revenue)})) %>%
+    .$reg2
   
   ## get_response
   get_response(model_full_1)
