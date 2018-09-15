@@ -172,8 +172,7 @@ benchm_center$ben
 bench_df <-   benchm_center %>%
   mutate(ben = map(ben, ~summary(., unit="ms") )) %>%
   select(-data) %>%
-  unnest(ben) %>%
-  mutate(data_type = factor(data_type, ordered=TRUE, levels = head(df_all$data_type, head_val)))
+  unnest(ben)
 
 bench_df
 
