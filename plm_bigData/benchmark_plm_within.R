@@ -56,6 +56,38 @@ Within1_dt_2 <- function(x, fe1, x_names = NULL) {
   as.data.frame(res)
 }
 
+Within1_dt_3a <- function(x) {
+  setDT(x,key="individual")
+  x_fullnames <- names(x)
+  mean_x <- x[,lapply(.SD,mean, na.rm=TRUE),by=individual]
+  setcolorder(mean_x,x_fullnames)
+  setkey(mean_x,individual)
+  res<-x-mean_x[x,][,1:length(names(mean_x))]
+  res[,individual:=NULL]
+  setDF(res)
+  return(res)
+}
+
+Within1_dt_3b <- function(t) {
+  setDT(t,key="individual")
+  x_fullnames <- names(t)
+  x_names <- x_fullnames[which(x_fullnames != "individual")]
+  mean_x <- t[,lapply(.SD,mean,na.rm=TRUE),by=individual]
+  res<-t[mean_x,.(A=x.A-i.A,B1=x.B1-i.B1,B2=x.B2-i.B2),on="individual"]
+  setDF(res)
+  return(res)
+}
+
+Within1_dt_3c <- function(x) {
+  setDT(x,key="individual")
+  mean_x <- x[, lapply(.SD,mean, na.rm=TRUE), by=individual][,individual:=NULL][x$individual,]
+  x[,individual:=NULL]
+  res <- x - mean_x 
+  setDF(res)
+  return(res)
+}
+
+
 Within_doby <- function(x, fe1) {
   formu <- as.formula(paste(". ~ ", fe1))
   scaleBy(formu, data=x, scale = FALSE)
@@ -111,7 +143,7 @@ plm(A~ B1 , data=df_all$data_plm[[1]], model="random")
 ##################################################
 
 head_val <- 5 ## if interactive testing or large R CMD BATCH
-times_bench <- 100
+times_bench <- 10
 
 ## test regressions
 regs_test <- df_all %>%
@@ -137,7 +169,10 @@ withins <- df_all %>%
          within_dplyr = map(data, ~ Within1_dplyr(select(., -year), individual)),
          within_felm = map(data, ~ demeanlist(.[,1:3], list(f1= factor(.$individual)))),
          within_dt_1 = map(data, ~ Within1_dt_1(., fe1="individual", x_names = c("A", "B1", "B2"))),
-         within_dt_2 = map(data, ~ Within1_dt_2(., fe1="individual", x_names = c("A", "B1", "B2")))
+         within_dt_2 = map(data, ~ Within1_dt_2(., fe1="individual", x_names = c("A", "B1", "B2"))),
+         within_dt_3a = map(data, ~ Within1_dt_3a(.[,1:4])),
+         within_dt_3b = map(data, ~ Within1_dt_3b(.[,1:4])),
+         within_dt_3c = map(data, ~ Within1_dt_3c(.[,1:4]))
          )
 
 ## Checks
@@ -145,11 +180,21 @@ map2_lgl(withins$within_plm, withins$within_dplyr,
          ~all.equal(as_tibble(.x), .y, check.attributes=FALSE))
 
 
-map2_lgl(withins$within_plm, withins$within_dt_1, 
+map2_lgl(withins$within_dplyr, withins$within_dt_1, 
          ~all.equal(as_tibble(.x), .y, check.attributes=FALSE))
 
-map2_lgl(withins$within_plm, withins$within_dt_2, 
+map2_lgl(withins$within_dplyr, withins$within_dt_2, 
      ~all.equal(as_tibble(.x), .y, check.attributes=FALSE))
+
+map2_lgl(withins$within_dplyr, withins$within_dt_3a, 
+         ~all.equal(as_tibble(.x), .y, check.attributes=FALSE))
+
+map2_lgl(withins$within_dplyr, withins$within_dt_3b, 
+         ~all.equal(as_tibble(.x), .y, check.attributes=FALSE))
+
+map2_lgl(withins$within_dplyr, withins$within_dt_3c, 
+         ~all.equal(as_tibble(.x), .y, check.attributes=FALSE))
+
 
 map2_lgl(withins$within_felm, withins$within_dplyr, 
          ~all.equal(.x, .y, check.attributes=FALSE))
@@ -177,6 +222,9 @@ benches_within <- df_all %>%
                                     dplyr = Within1_dplyr(select(.x, -year), individual),
                                     dt_1 = Within1_dt_1(.x, fe1="individual", x_names = c("A", "B1", "B2")),
                                     dt_2 = Within1_dt_2(.x, fe1="individual", x_names = c("A", "B1", "B2")),
+                                    dt_3a = map(data, ~ Within1_dt_3a(.[,1:4])),
+                                    dt_3b = map(data, ~ Within1_dt_3b(.[,1:4])),
+                                    dt_3c = map(data, ~ Within1_dt_3c(.[,1:4])),
                                     times=50)))
 benches_within$ben
 
