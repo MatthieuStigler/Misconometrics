@@ -23,3 +23,7 @@ R package for panel data, `plm`, ie vey powerful, yet slow in presence of large 
 1. Yes, `plm` can be very slow in presence of large datasets
 2. Package `lfe`, with its function `felm`, and underlying Within funciton `demeanlist`, is much faster
 3. `data.table` seems to offer very interesting speed imporvements, over plm and even over felm (sometimes)
+
+## plots
+
+![Graphic](figures/benchm_center_dt_lfe.png?raw=true "Title")
