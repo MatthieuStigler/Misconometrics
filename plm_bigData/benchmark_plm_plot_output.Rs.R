@@ -8,11 +8,18 @@ bench_df <- read_csv("benchmark_output.csv") %>%
 ##
 
 
+##################
 ## in percentage
+##################
 bench_df_perc <- bench_df %>%
   group_by(type, data_type) %>%
-  mutate(per_min = (mean-min(mean))/min(mean)) %>%
+  mutate(per_min = 100 *(mean-min(mean))/min(mean)) %>%
   ungroup()
+
+
+##################
+## Plots
+##################
 
 pl_all <- bench_df %>%
   ggplot(aes(x= data_type, y = mean, colour = expr))+
@@ -37,10 +44,12 @@ pl_within <- bench_df %>%
 
 pl_within
 
-## percentage plot
-max_i <- 8
-bench_df_perc %>%
+#### percentage plot ######
+
+max_i <- 800
+per_plot <- bench_df_perc %>%
   filter(type == "within") %>%
+  filter(! expr %in% c("dt_3a", "dt_3b")) %>% 
   mutate(per_min =ifelse(per_min < max_i, per_min, max_i +rnorm(1, sd = 0.5))) %>%
   select(data_type, per_min, expr) %>%
   ggplot(aes(x= data_type, y = per_min, colour = expr))+
@@ -49,9 +58,10 @@ bench_df_perc %>%
   ylab("TPercent above best") +
   ylim(c(0, max_i+1)) +
   theme(axis.text = element_text(angle = 20)) +
-  ggtitle("Benchmark: within transformations, 5 algo at  data sizes")
+  ggtitle("Benchmark: within transformations (bounded at 800")
 
 
+per_plot
 
 pl_all
 pl_within %+%
@@ -63,8 +73,16 @@ pl_within %+%
   ylim(c(0, 400))
 
 
-  ggsave(pl_all, filename = "plot_benchmark reg and within.png", height = 4, width = 7)
-ggsave(pl_within, filename = "plot_benchmark within.png", height = 4, width = 7)
+##################
+## Save plots
+##################
+
+
+ggsave(per_plot, filename = "figures/plot_benchmark_within_perc.png", height = 4, width = 7)
+ggsave(pl_all, filename = "figures/plot_benchmark_reg_and_within.png", height = 4, width = 7)
+ggsave(pl_within, filename = "figures/plot_benchmark_within.png", height = 4, width = 7)
+
+
 
 ## numbers
 bench_df %>%
