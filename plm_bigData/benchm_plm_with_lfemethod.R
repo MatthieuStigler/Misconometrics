@@ -55,25 +55,21 @@ Within_plm_orig <- function (x, effect, rm.null = TRUE, ...)
     if (rm.null) {
       result <- result[, othervar, drop = FALSE]
       attr(result, "constant") <- character(0)
-    }
-    else {
+    }    else {
       result <- result[, drop = FALSE]
       attr(result, "constant") <- colnames(x)[!othervar]
     }
     result
-  }
-  else {
+  }  else {
     if (effect %in% c("individual", "time", "group")) 
       result <- x - Between(x, effect)
     if (effect == "twoways") {
       xindex <- attr(x, "index")
       if (is.pbalanced(xindex)) {
-        result <- x - Between(x, "individual") - Between(x, 
-                                                         "time") + matrix(.colMeans(x, m = nrow(x), 
-                                                                                    n = ncol(x)), nrow = nrow(x), ncol = ncol(x), 
-                                                                          byrow = TRUE)
-      }
-      else {
+        result <- x - Between(x, "individual") 
+        - Between(x, "time") 
+        + matrix(.colMeans(x, m = nrow(x), n = ncol(x)), nrow = nrow(x), ncol = ncol(x), byrow = TRUE)
+      } else {
         time <- index(xindex, "time")
         id <- index(xindex, "individual")
         Dmu <- model.matrix(~time - 1)
