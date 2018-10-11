@@ -174,7 +174,8 @@ plot_dec <- function(x) {
     geom_point() +
     geom_segment(aes(x=beta_var_base, xend = delta_center, yend = covariate)) +
     geom_vline(aes(xintercept = c(beta_var_base)), lty=2, colour="blue")+
-    geom_vline(aes(xintercept = c(beta_var_full)), lty=2) 
+    geom_vline(aes(xintercept = c(beta_var_full)), lty=2) +
+    xlab("Delta ( = gamma * beta")
   if(n_var>1) pl <- pl + facet_grid(. ~ variable, scales="free")
   pl
 }
@@ -198,7 +199,7 @@ plot_gamma_beta <-  function(x, colour = covariate, size = abs(delta), legend_si
     scale_size_continuous(guide = "none")
   
   if(add_CI) res <-  res +
-    geom_errorbar(aes(ymin = gamma_low, ymax = gamma_high)) +
+    geom_errorbar(aes(ymin = gamma_low, ymax = gamma_high), lty = 2) +
     geom_errorbarh(aes(xmin = beta_K_low, xmax = beta_K_high)) 
   res
 }
@@ -223,7 +224,22 @@ process_lm_mine <- function(ret, x, conf.int = FALSE, conf.level = .95,
   
   if (conf.int) {
     # avoid "Waiting for profiling to be done..." message
-    CI <- suppressMessages(stats::confint(x, level = conf.level))
+    if(inherits(x, "mlm")) {
+      confint.mlm <- function (object, level = 0.95, ...) {
+        cf <- coef(object)
+        ncfs <- as.numeric(cf)
+        a <- (1 - level)/2
+        a <- c(a, 1 - a)
+        fac <- qt(a, object$df.residual)
+        pct <- .format.perc(a, 3)
+        ses <- sqrt(diag(stats::vcov(object)))
+        ci <- ncfs + ses %o% fac
+        setNames(data.frame(ci), pct)
+      }
+      CI <- confint.mlm(x, level = conf.level)
+    } else {
+      CI <- suppressMessages(stats::confint(x, level = conf.level))
+    }
     # Handle case if regression is rank deficient
     p <- x$rank
     if (!is.null(p) && !is.null(x$qr) & !inherits(x, "mlm")) {
