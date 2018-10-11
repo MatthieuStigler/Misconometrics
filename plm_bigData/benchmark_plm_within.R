@@ -94,8 +94,8 @@ Within_doby <- function(x, fe1) {
 }
 
 
-as_fake_plm <- function(x) {
-  x_plm <- as.matrix(x[, 1:3])
+as_fake_plm <- function(x, keep = 1:3) {
+  x_plm <- as.matrix(x[, keep, drop=FALSE])
   attr(x_plm, "index") <- attr(x, "index")
   x_plm
 }
@@ -142,7 +142,7 @@ plm(A~ B1 , data=df_all$data_plm[[1]], model="random")
 ########## Check results same
 ##################################################
 
-head_val <- 5 ## if interactive testing or large R CMD BATCH
+head_val <- 3 ## if interactive testing or large R CMD BATCH
 times_bench <- 10
 
 ## test regressions
@@ -152,15 +152,16 @@ regs_test <- df_all %>%
          reg_felm = map(data, ~felm(A~B1 + B2|individual, data=.)))
 
 regs_test
-         
+
 ## check equality of coefs? 
 regs_test %>%
-  mutate(coefs_plm = map(reg_plm, tidy),
-         coefs_felm = map(reg_felm, tidy)) %>%
+  head(head_val) %>% 
+  mutate(coefs_plm = map(reg_plm, ~tidy(., quick = TRUE)),
+         coefs_felm = map(reg_felm, ~tidy(., quick = TRUE))) %>%
   unnest(coefs_plm, coefs_felm) %>%
   filter(term !=term1)
 
-
+broom:::tidy.lm(regs_test[2,]$reg_plm[[1]], quick = TRUE)
 
 ## test withins 
 withins <- df_all %>%

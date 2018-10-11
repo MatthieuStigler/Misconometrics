@@ -1,9 +1,11 @@
 library(tidyverse)
 
-levels <- c("data_small", "data_medium_N", "data_medium_T", "data_large_N", "data_large_T", "data_fat_N", "data_fat_N_fat_T")
+levels <- c("data_small", "data_medium_N", "data_medium_T", "data_large_N", "data_large_T", "data_fat_N", "data_fat_N_med_T")
 
 bench_df <- read_csv("benchmark_output.csv") %>%
   mutate(data_type = factor(data_type, ordered=TRUE, levels = levels))
+
+##
 
 
 ##################

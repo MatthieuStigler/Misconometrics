@@ -1,9 +1,17 @@
+README.html
+
 # History files
 .Rhistory
 .Rapp.history
 
 # Session Data files
-.RData
+*.RData
+*.rda
+*.rds
+
+## plots
+*.png
+*.pdf
 
 # Example code in package build process
 *-Ex.R
