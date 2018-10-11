@@ -225,6 +225,17 @@ process_lm_mine <- function(ret, x, conf.int = FALSE, conf.level = .95,
   if (conf.int) {
     # avoid "Waiting for profiling to be done..." message
     if(inherits(x, "mlm")) {
+      .format.perc <- function (probs, digits) {
+        paste(
+          format(
+            100 * probs,
+            trim = TRUE,
+            scientific = FALSE,
+            digits = digits
+          ),
+          "%"
+        )
+      }
       confint.mlm <- function (object, level = 0.95, ...) {
         cf <- coef(object)
         ncfs <- as.numeric(cf)
