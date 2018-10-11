@@ -47,6 +47,16 @@ dec <- dec_covar(object = model_full_1, var_main = "Education")
 
 
 
+|covariate        |     beta_K| gamma_Education| delta_Education|
+|:----------------|----------:|---------------:|---------------:|
+|Agriculture      | -0.1721140|      -1.5105273|       0.2599829|
+|Catholic         |  0.1041153|      -0.6673314|      -0.0694794|
+|Examination      | -0.2580082|       0.5794737|      -0.1495090|
+|Infant.Mortality |  1.0770481|      -0.0300865|      -0.0324047|
+|Total            |         NA|              NA|       0.0085898|
+|Check            |         NA|              NA|       0.0085898|
+
+
 covariate               beta_K   gamma_Education   delta_Education
 -----------------  -----------  ----------------  ----------------
 Agriculture         -0.1721140        -1.5105273         0.2599829
@@ -71,7 +81,7 @@ plot_dec(dec_long) +
   ggtitle("Effect of each covariate on the main variable's coef")
 ```
 
-![](README_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+![](README_files/figure-html/plot_dec-1.png)<!-- -->
 
 
 ```r
@@ -79,5 +89,5 @@ plot_gamma_beta(dec_long, add_CI = TRUE) +
   ggtitle("Covariate impact: direct (beta) and indirect (gamma) impact")
 ```
 
-![](README_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+![](README_files/figure-html/plot_gamma_beta-1.png)<!-- -->
 

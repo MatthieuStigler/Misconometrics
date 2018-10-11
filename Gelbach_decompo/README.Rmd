@@ -48,7 +48,12 @@ dec <- dec_covar(object = model_full_1, var_main = "Education")
 
 ```{r, echo= FALSE}
 library(knitr)
-kable(dec)
+kable(dec, format = "markdown")
+```
+
+```{r, echo= FALSE}
+library(knitr)
+kable(dec, format = "pandoc")
 ```
 
 ### Plots
@@ -59,12 +64,12 @@ You can get two plots also. You will need to use the `format="long"` argument, a
 dec_long <- dec_covar(object = model_full_1, var_main = "Education", format = "long", add_coefs = TRUE, conf.int = TRUE)
 ```
 
-```{r}
+```{r plot_dec}
 plot_dec(dec_long) +
   ggtitle("Effect of each covariate on the main variable's coef")
 ```
 
-```{r}
+```{r plot_gamma_beta}
 plot_gamma_beta(dec_long, add_CI = TRUE) +
   ggtitle("Covariate impact: direct (beta) and indirect (gamma) impact")
 ```
