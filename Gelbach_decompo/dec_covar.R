@@ -205,7 +205,8 @@ plot_gamma_beta <-  function(x, colour = covariate, size = abs(delta), legend_si
     ggplot(aes(x = beta_K, y = gamma, colour = !!colour_var))+
     geom_point(aes(size = !!size_var)) +
     geom_hline(yintercept = 0, lty=2) +
-    geom_vline(xintercept = 0, lty=2) 
+    geom_vline(xintercept = 0, lty=2) +
+    xlab("beta")
   
   if(!legend_size) res <- res +
     scale_size_continuous(guide = "none")
