@@ -231,7 +231,7 @@ process_lm_mine <- function(ret, x, conf.int = FALSE, conf.level = .95,
       CI <- CI[piv, , drop = FALSE]
     }
     colnames(CI) <- c("conf.low", "conf.high")
-    ret <- cbind(ret, trans(unrowname(CI)))
+    ret <- cbind(ret, trans(broom:::unrowname(CI)))
   }
   ret$estimate <- trans(ret$estimate)
   
