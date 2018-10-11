@@ -36,31 +36,48 @@ library(devtools)
 source_url("https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/Gelbach_decompo/dec_covar.R")
 ```
 
+
+```r
+## run a OLS with built-in data freeny
+model_full_1 <- lm(Fertility ~ ., data=swiss)
+
+## use decomposition:
+dec <- dec_covar(object = model_full_1, var_main = "Education")
 ```
-## SHA-1 hash of file is cc7ac4d4dcdb89a4df6c70ce66999c555dbd62ad
+
+
+
+covariate               beta_K   gamma_Education   delta_Education
+-----------------  -----------  ----------------  ----------------
+Agriculture         -0.1721140        -1.5105273         0.2599829
+Catholic             0.1041153        -0.6673314        -0.0694794
+Examination         -0.2580082         0.5794737        -0.1495090
+Infant.Mortality     1.0770481        -0.0300865        -0.0324047
+Total                       NA                NA         0.0085898
+Check                       NA                NA         0.0085898
+
+### Plots
+
+You can get two plots also. You will need to use the `format="long"` argument, as well as `conf.int=TRUE` (that's just for the beta and gamma though)
+
+
+```r
+dec_long <- dec_covar(object = model_full_1, var_main = "Education", format = "long", add_coefs = TRUE, conf.int = TRUE)
 ```
 
 
 ```r
-## run a OLS with built-in data freeny
-model_full_1 <- lm(y ~ lag.quarterly.revenue + price.index + income.level + market.potential, data=freeny)
-
-## use decomposition:
-dec_covar(object = model_full_1, var_main = "lag.quarterly.revenue")
+plot_dec(dec_long) +
+  ggtitle("Effect of each covariate on the main variable's coef")
 ```
 
+![](README_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+
+
+```r
+plot_gamma_beta(dec_long, add_CI = TRUE) +
+  ggtitle("Covariate impact: direct (beta) and indirect (gamma) impact")
 ```
-##                               variable      gamma     beta_K     delta
-## 1                          price.index -0.4182537 -0.7542401 0.3154637
-## 2                         income.level  0.3747902  0.7674609 0.2876368
-## 3                     market.potential  0.2038996  1.3305577 0.2713002
-##                                  Total         NA         NA 0.8744008
-## lag.quarterly.revenue            Check         NA         NA 0.8744008
-##                           perc
-## 1                     36.07770
-## 2                     32.89531
-## 3                     31.02699
-##                             NA
-## lag.quarterly.revenue       NA
-```
+
+![](README_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
 

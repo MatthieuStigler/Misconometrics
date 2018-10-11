@@ -32,16 +32,40 @@ The function works for `object` of class:
 
 Source the script:
 
-```{r cars}
+```{r cars, message = FALSE}
 library(devtools)
 source_url("https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/Gelbach_decompo/dec_covar.R")
 ```
 
 ```{r}
 ## run a OLS with built-in data freeny
-model_full_1 <- lm(y ~ lag.quarterly.revenue + price.index + income.level + market.potential, data=freeny)
+model_full_1 <- lm(Fertility ~ ., data=swiss)
 
 ## use decomposition:
-dec_covar(object = model_full_1, var_main = "lag.quarterly.revenue")
+dec <- dec_covar(object = model_full_1, var_main = "Education")
+```
+
+
+```{r, echo= FALSE}
+library(knitr)
+kable(dec)
+```
+
+### Plots
+
+You can get two plots also. You will need to use the `format="long"` argument, as well as `conf.int=TRUE` (that's just for the beta and gamma though)
+
+```{r}
+dec_long <- dec_covar(object = model_full_1, var_main = "Education", format = "long", add_coefs = TRUE, conf.int = TRUE)
+```
+
+```{r}
+plot_dec(dec_long) +
+  ggtitle("Effect of each covariate on the main variable's coef")
+```
+
+```{r}
+plot_gamma_beta(dec_long, add_CI = TRUE) +
+  ggtitle("Covariate impact: direct (beta) and indirect (gamma) impact")
 ```
 
