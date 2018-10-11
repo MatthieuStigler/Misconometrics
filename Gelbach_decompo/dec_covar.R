@@ -167,15 +167,27 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
 }
 
 plot_dec <- function(x) {
+  
+  ## get df of main beta
+  beta_orig <- x %>% 
+    select(variable, starts_with("beta_var")) %>% 
+    distinct() %>% 
+    gather(Model, value, starts_with("beta_var")) %>% 
+    mutate(Model = case_when(Model == "beta_var_base" ~ "model base",
+                             Model == "beta_var_full" ~ "model full"))
+  
   n_var <- length(unique(x$variable))
   pl <- x %>%
     mutate(delta_center = beta_var_base - delta) %>%
     ggplot(aes(x = delta_center, y =covariate)) +
     geom_point() +
     geom_segment(aes(x=beta_var_base, xend = delta_center, yend = covariate)) +
-    geom_vline(aes(xintercept = c(beta_var_base)), lty=2, colour="blue")+
-    geom_vline(aes(xintercept = c(beta_var_full)), lty=2) +
-    xlab("Delta ( = gamma * beta")
+    geom_vline(aes(xintercept = value, colour = Model, linetype = Model), data = beta_orig) +
+    scale_colour_manual(values = c("model base"= "black", "model full" = "blue"))+
+    theme(legend.position = "bottom") +
+    xlab("Delta ( = gamma * beta)")
+  
+  
   if(n_var>1) pl <- pl + facet_grid(. ~ variable, scales="free")
   pl
 }
