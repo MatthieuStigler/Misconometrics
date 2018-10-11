@@ -28,7 +28,7 @@ The function works for `object` of class:
 ## Illustration
 
 
-Source the script:
+1) Source the script:
 
 
 ```r
@@ -36,14 +36,20 @@ library(devtools)
 source_url("https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/Gelbach_decompo/dec_covar.R")
 ```
 
+2) Run your OLS model, with all the variables. We use here built-in data *swiss*:
+
 
 ```r
-## run a OLS with built-in data freeny
 model_full_1 <- lm(Fertility ~ ., data=swiss)
+```
 
-## use decomposition:
+3) Use the function `dec_covar` on the OLS output, specify which variable is the *main* one:
+
+
+```r
 dec <- dec_covar(object = model_full_1, var_main = "Education")
 ```
+
 
 
 
@@ -55,16 +61,6 @@ dec <- dec_covar(object = model_full_1, var_main = "Education")
 |Infant.Mortality |  1.0770481|      -0.0300865|      -0.0324047|
 |Total            |         NA|              NA|       0.0085898|
 |Check            |         NA|              NA|       0.0085898|
-
-
-covariate               beta_K   gamma_Education   delta_Education
------------------  -----------  ----------------  ----------------
-Agriculture         -0.1721140        -1.5105273         0.2599829
-Catholic             0.1041153        -0.6673314        -0.0694794
-Examination         -0.2580082         0.5794737        -0.1495090
-Infant.Mortality     1.0770481        -0.0300865        -0.0324047
-Total                       NA                NA         0.0085898
-Check                       NA                NA         0.0085898
 
 ### Plots
 

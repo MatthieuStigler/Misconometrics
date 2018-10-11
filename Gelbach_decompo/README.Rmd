@@ -30,30 +30,30 @@ The function works for `object` of class:
 ## Illustration
 
 
-Source the script:
+1) Source the script:
 
 ```{r cars, message = FALSE}
 library(devtools)
 source_url("https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/Gelbach_decompo/dec_covar.R")
 ```
 
-```{r}
-## run a OLS with built-in data freeny
-model_full_1 <- lm(Fertility ~ ., data=swiss)
+2) Run your OLS model, with all the variables. We use here built-in data *swiss*:
 
-## use decomposition:
+```{r}
+model_full_1 <- lm(Fertility ~ ., data=swiss)
+```
+
+3) Use the function `dec_covar` on the OLS output, specify which variable is the *main* one:
+
+```{r}
 dec <- dec_covar(object = model_full_1, var_main = "Education")
 ```
+
 
 
 ```{r, echo= FALSE}
 library(knitr)
 kable(dec, format = "markdown")
-```
-
-```{r, echo= FALSE}
-library(knitr)
-kable(dec, format = "pandoc")
 ```
 
 ### Plots
