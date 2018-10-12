@@ -372,8 +372,13 @@ if(FALSE){
     .$reg2
   
   ## get_response
-  get_response(model_full_1)
-  get_response(model_iv_over)
-  get_response(model_felm)
+  get_response_alter <-  function(x) attr(as.Formula(formula(x)), "lhs")[[1]]
+  
+  mod_resps <-  list(model_iv_over = model_iv_over,
+                     model_full_1 = model_full_1,
+                     model_felm = model_felm)
+  lapply(mod_resps, get_response)
+  lapply(mod_resps, get_response_alter)
+  
   
 }
