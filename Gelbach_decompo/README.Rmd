@@ -74,3 +74,8 @@ plot_gamma_beta(dec_long, add_CI = TRUE) +
   ggtitle("Covariate impact: direct (beta) and indirect (gamma) impact")
 ```
 
+
+```{r plot_gam_bet_del}
+plot_gam_bet_del(dec_long)
+```
+

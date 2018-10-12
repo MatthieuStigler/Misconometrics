@@ -87,3 +87,15 @@ plot_gamma_beta(dec_long, add_CI = TRUE) +
 
 ![](README_files/figure-html/plot_gamma_beta-1.png)<!-- -->
 
+
+
+```r
+plot_gam_bet_del(dec_long)
+```
+
+```
+## Warning: Removed 4 rows containing missing values (geom_errorbarh).
+```
+
+![](README_files/figure-html/plot_gam_bet_del-1.png)<!-- -->
+
