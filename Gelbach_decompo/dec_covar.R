@@ -217,6 +217,26 @@ plot_gamma_beta <-  function(x, colour = covariate, size = abs(delta), legend_si
   res
 }
 
+plot_gam_bet_del <-  function(x){
+  x_w <- x %>% 
+    select(-starts_with("beta_var")) %>% 
+    setNames(str_replace(colnames(.), "beta_K", "beta")) %>% 
+    rename(beta_point = beta, gamma_point = gamma,
+           delta_point = delta) %>% 
+    gather(variable, value, contains("beta"), contains("gamma"), delta_point) %>% 
+    separate(variable, c("variable", "stat")) %>% 
+    spread(stat, value)
+  
+  ## plot
+  x_w %>% 
+    mutate(variable  = factor(variable, levels = c("beta", "gamma", "delta"))) %>% 
+    ggplot(aes(y = covariate, x = point, colour = covariate)) +
+    geom_point() +
+    facet_grid(.~variable) +
+    geom_vline(xintercept = 0, lty = 2) +
+    geom_errorbarh(aes(xmin = low, xmax = high)) +
+    theme(legend.position = "none") 
+}
 
 ## should be removed in near future, see: https://github.com/tidymodels/broom/issues/510
 process_lm_mine <- function(ret, x, conf.int = FALSE, conf.level = .95,
