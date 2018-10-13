@@ -60,10 +60,11 @@ update.ivreg <- function (object, formula., ..., evaluate = TRUE)
 
 
 dec_covar <- function(object, var_main, format = c("wide", "long"),
-                      add_coefs = FALSE, conf.int = FALSE) {
+                      add_coefs = FALSE, conf.int = FALSE, ...) {
   
   format <- match.arg(format)
   if(add_coefs & format == "wide") stop("'add_coefs' only for format = 'long'")
+  tidy_quick_arg <-  !conf.int
   
   ## get var names
   formu_obj <- formula(object)
@@ -72,14 +73,11 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
   var_other <- var_all[! var_all %in% var_main]
   
   ## beta_main: base regression: on main variable(s) only
-  formu_base <- drop_terms(f=formu_obj, dr=var_other)
-  reg_base <- update(object, as.formula(formu_base))
-  coef_diffs <- tidy(reg_base) %>%
-    filter(term !="(Intercept)") %>%
-    left_join(tidy(object), by="term", suffix = c("_base", "_full")) %>%
-    mutate(diff = estimate_base-estimate_full) %>%
-    select(term, diff)
-  
+  if(format == "wide" | add_coefs) {
+    formu_base <- drop_terms(f=formu_obj, dr=var_other)
+    reg_base <- update(object, as.formula(formu_base), ...)
+    # reg_base <- update(object, as.formula(formu_base))
+  }
   
   ## gamma: auxiliary regs: covariates on main regs
   if(inherits(object, c("lm", "felm"))) {
@@ -88,8 +86,9 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
     } else {
       string_formula <- sprintf("%s ~ %s", paste(var_other, collapse=" + "), paste(var_main, collapse=" + "))  
     }
+    # reg_aux <- update(object, as.formula(string_formula), ...)  
     reg_aux <- update(object, as.formula(string_formula))  
-    gamma_df <- tidy(x=reg_aux, conf.int = conf.int) %>% 
+    gamma_df <- tidy(x=reg_aux, conf.int = conf.int, quick = !conf.int) %>% 
       select(response, term, estimate, contains("conf")) %>% 
       filter(term %in% var_main) %>% 
       rename(variable = term, 
@@ -107,7 +106,7 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
   } else {
     string_formula2 <- sprintf("%s ~ %s", var_other, paste(var_main, collapse=" + "))
     reg_aux_all <- lapply(string_formula2, function(x) update(object, as.formula(x))) 
-    gamma_df <- map2_dfr(reg_aux_all, var_other, ~tidy(.x, conf.int = conf.int) %>%
+    gamma_df <- map2_dfr(reg_aux_all, var_other, ~tidy(.x, conf.int = conf.int, quick = !conf.int) %>%
                            mutate(covariate = .y)) %>%
       filter(term %in% var_main) %>%
       rename(variable = term,
@@ -131,7 +130,7 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
     betas_main <- data_frame(model = c("full", "base"),
                              reg =list(full = object,
                                        base = reg_base)) %>%
-      mutate(reg = map(reg, tidy)) %>%
+      mutate(reg = map(reg, tidy, quick = TRUE)) %>%
       unnest(reg) %>%
       select(model, term, estimate) %>%
       filter(term %in% var_main) %>%
@@ -145,6 +144,12 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
   
   # wide version in case 
   if(format == "wide") {
+    coef_diffs <- tidy(reg_base) %>%
+      filter(term !="(Intercept)") %>%
+      left_join(tidy(object), by="term", suffix = c("_base", "_full")) %>%
+      mutate(diff = estimate_base-estimate_full) %>%
+      select(term, diff)
+    
     res_df_w <- res_df %>%
       gather(stat, value, gamma, delta) %>%
       mutate(stat = paste(stat, variable, sep="_")) %>%
@@ -305,8 +310,9 @@ assignInNamespace("process_lm", process_lm_mine, "broom")
 ################################
 
 if(FALSE){
-  library(devtools)
-  devtools::install_github("tidymodels/broom")
+  # library(devtools)
+  # devtools::install_github("tidymodels/broom")
+  # devtools::install_github("MatthieuStigler/broom", ref = "dev")
   
   ## lm
   model_full_1 <- lm(y ~ lag.quarterly.revenue + price.index + income.level + market.potential, data=freeny)
@@ -316,6 +322,7 @@ if(FALSE){
   dec_lm1_l
   plot_dec(dec_lm1_l)
   plot_gamma_beta(x=dec_lm1_l)
+  plot_gam_bet_del(x=dec_lm1_l)
   
   dec_lm1_k2_l <- dec_covar(object = model_full_1, var_main = c("lag.quarterly.revenue", "price.index"),
                             format="long", add_coefs=TRUE)
