@@ -1,0 +1,35 @@
+---
+title: "dec_cov_notes"
+author: "Matthieu"
+date: "October 12, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Issues
+
+
+### Broom
+
+* prob with confint.mlm: opened issue
+* prob with tidy.mlm, quick = TRUE: will send issue, just need instead:
+
+```{r, eval = FALSE}
+data.frame(response = rep(colnames(co), each = nrow(co)),
+           term = rownames(co), 
+           estimate = as.numeric(co), stringsAsFactors = FALSE) 
+
+```
+
+* prob with `lfe tidyr`: got in my broom/dev has fix. Wait for previous check
+
+### lfe felm
+
+* prob with extracting formula
+
+## To do
+
+* compute as few `quick=FALSE` as possible. Wait for issue of tidy.lm to be fixed!
