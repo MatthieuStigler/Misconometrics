@@ -222,22 +222,28 @@ plot_gamma_beta <-  function(x, colour = covariate, size = abs(delta), legend_si
   res
 }
 
-plot_gam_bet_del <-  function(x){
+plot_gam_bet_del <-  function(x, col_var = covariate){
+  
+  colour_var <-  enquo(col_var)
+  
+  if(!"gamma_low" %in% colnames(x)) warning("Make sure called with (format='long', conf.int=TRUE)")
+    
+  ## reshape data
   x_w <- x %>% 
     select(-starts_with("beta_var")) %>% 
     setNames(str_replace(colnames(.), "beta_K", "beta")) %>% 
     rename(beta_point = beta, gamma_point = gamma,
            delta_point = delta) %>% 
-    gather(variable, value, contains("beta"), contains("gamma"), delta_point) %>% 
-    separate(variable, c("variable", "stat")) %>% 
+    gather(var_stat, value, contains("beta"), contains("gamma"), delta_point) %>% 
+    separate(var_stat, c("parameter", "stat")) %>% 
     spread(stat, value)
   
   ## plot
   x_w %>% 
-    mutate(variable  = factor(variable, levels = c("beta", "gamma", "delta"))) %>% 
-    ggplot(aes(y = covariate, x = point, colour = covariate)) +
+    mutate(parameter  = factor(parameter, levels = c("beta", "gamma", "delta"))) %>% 
+    ggplot(aes(y = covariate, x = point, colour = !!colour_var)) +
     geom_point() +
-    facet_grid(.~variable) +
+    facet_grid(.~parameter) +
     geom_vline(xintercept = 0, lty = 2) +
     geom_errorbarh(aes(xmin = low, xmax = high)) +
     theme(legend.position = "none") 
@@ -325,9 +331,10 @@ if(FALSE){
   plot_gam_bet_del(x=dec_lm1_l)
   
   dec_lm1_k2_l <- dec_covar(object = model_full_1, var_main = c("lag.quarterly.revenue", "price.index"),
-                            format="long", add_coefs=TRUE)
+                            format="long", add_coefs=TRUE, conf.int = TRUE)
   plot_dec(dec_lm1_k2_l)
   plot_gamma_beta(dec_lm1_k2_l)
+  plot_gam_bet_del(x=dec_lm1_k2_l, col_var = variable)
   
   
   model_full_2 <- lm(Fertility ~ . , data=swiss)
@@ -350,8 +357,9 @@ if(FALSE){
   library(lfe)
   model_felm <- felm(log(gsp) ~ log(pcap) + log(pc) + log(emp) + unemp |state|0|state, data = Produc)
   dec_covar(object=model_felm, var_main = "log(pc)")
-  dec_lfe_l <- dec_covar(object=model_felm, var_main = "log(pc)", format="long", add_coefs=TRUE)
+  dec_lfe_l <- dec_covar(object=model_felm, var_main = "log(pc)", format="long", add_coefs=TRUE, conf.int = TRUE)
   plot_dec(dec_lfe_l)
+  plot_gam_bet_del(dec_lfe_l)
 
   dec_lfe_k2_l <- dec_covar(object=model_felm, var_main = c("log(pc)","log(pcap)"), format="long", add_coefs=TRUE)
   plot_dec(dec_lfe_k2_l)
