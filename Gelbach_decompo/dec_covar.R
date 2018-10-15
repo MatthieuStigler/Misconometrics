@@ -222,9 +222,9 @@ plot_gamma_beta <-  function(x, colour = covariate, size = abs(delta), legend_si
   res
 }
 
-plot_gam_bet_del <-  function(x, col_var = covariate, conf.int = TRUE){
+plot_gam_bet_del <-  function(x, colour = covariate, conf.int = TRUE){
   
-  colour_var <-  enquo(col_var)
+  colour_var <-  enquo(colour)
   
   if(!conf.int & !all(c("gamma", "delta") %in% colnames(x))) stop("Make sure called with (format='long')")
   if(conf.int & !"gamma_low" %in% colnames(x)) stop("Make sure called with (format='long', conf.int=TRUE)")
@@ -337,7 +337,7 @@ if(FALSE){
                             format="long", add_coefs=TRUE, conf.int = TRUE)
   plot_dec(dec_lm1_k2_l)
   plot_gamma_beta(dec_lm1_k2_l)
-  plot_gam_bet_del(x=dec_lm1_k2_l, col_var = variable)
+  plot_gam_bet_del(x=dec_lm1_k2_l, colour = variable)
   
   
   model_full_2 <- lm(Fertility ~ . , data=swiss)
