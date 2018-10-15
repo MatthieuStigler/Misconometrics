@@ -222,11 +222,12 @@ plot_gamma_beta <-  function(x, colour = covariate, size = abs(delta), legend_si
   res
 }
 
-plot_gam_bet_del <-  function(x, col_var = covariate){
+plot_gam_bet_del <-  function(x, col_var = covariate, conf.int = TRUE){
   
   colour_var <-  enquo(col_var)
   
-  if(!"gamma_low" %in% colnames(x)) warning("Make sure called with (format='long', conf.int=TRUE)")
+  if(!conf.int & !all(c("gamma", "delta") %in% colnames(x))) stop("Make sure called with (format='long')")
+  if(conf.int & !"gamma_low" %in% colnames(x)) stop("Make sure called with (format='long', conf.int=TRUE)")
     
   ## reshape data
   x_w <- x %>% 
@@ -239,14 +240,16 @@ plot_gam_bet_del <-  function(x, col_var = covariate){
     spread(stat, value)
   
   ## plot
-  x_w %>% 
+  x_plot <- x_w %>% 
     mutate(parameter  = factor(parameter, levels = c("beta", "gamma", "delta"))) %>% 
     ggplot(aes(y = covariate, x = point, colour = !!colour_var)) +
     geom_point() +
     facet_grid(.~parameter) +
-    geom_vline(xintercept = 0, lty = 2) +
+    geom_vline(xintercept = 0, lty = 2) 
+  if(conf.int)  x_plot <- x_plot +
     geom_errorbarh(aes(xmin = low, xmax = high)) +
     theme(legend.position = "none") 
+  x_plot
 }
 
 ## should be removed in near future, see: https://github.com/tidymodels/broom/issues/510
