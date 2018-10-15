@@ -171,7 +171,7 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
   
 }
 
-plot_dec <- function(x) {
+plot_dec <- function(x, scales = "free") {
   
   ## get df of main beta
   beta_orig <- x %>% 
@@ -193,7 +193,7 @@ plot_dec <- function(x) {
     xlab("Delta ( = gamma * beta)")
   
   
-  if(n_var>1) pl <- pl + facet_grid(. ~ variable, scales="free")
+  if(n_var>1) pl <- pl + facet_grid(. ~ variable, scales=scales)
   pl
 }
 
@@ -222,7 +222,7 @@ plot_gamma_beta <-  function(x, colour = covariate, size = abs(delta), legend_si
   res
 }
 
-plot_gam_bet_del <-  function(x, colour = covariate, conf.int = TRUE){
+plot_gam_bet_del <-  function(x, colour = covariate, conf.int = TRUE, scales = "fixed"){
   
   colour_var <-  enquo(colour)
   
@@ -244,7 +244,7 @@ plot_gam_bet_del <-  function(x, colour = covariate, conf.int = TRUE){
     mutate(parameter  = factor(parameter, levels = c("beta", "gamma", "delta"))) %>% 
     ggplot(aes(y = covariate, x = point, colour = !!colour_var)) +
     geom_point() +
-    facet_grid(.~parameter) +
+    facet_grid(.~parameter, scales = scales) +
     geom_vline(xintercept = 0, lty = 2) 
   if(conf.int)  x_plot <- x_plot +
     geom_errorbarh(aes(xmin = low, xmax = high)) +
