@@ -108,8 +108,8 @@ reg_aux.lm <- function(object, var_main, var_controls = NULL, method = c("update
   
     require(ISR3)
     XX <-  crossprod(qr.R(object$qr))
-    var_which <- which(var_main == colnames(XX))
-    var_regs <- c(1, var_which)
+    which_main <- which(var_main == colnames(XX))
+    var_regs <- c(1, which_main)
     sweep_lm <- SWP(XX, var_regs)
     coef <-  sweep_lm[var_regs, - var_regs]
     res <-  list(coefficients = coef)
@@ -150,18 +150,19 @@ reg_aux.felm <-  function(object, var_main, var_controls = NULL, method = c("upd
     class(res) <-  c("reg_aux", old_class)
   } else  if(method=="sweep") {
     require(ISR3)
-    vc_get_raw <-  function(x) vcov(x) / summary(x)$rse^2
+    vc_get_raw <-  function(x, type="iid") vcov(x, type = type) / summary(x)$rse^2
     vc_raw <- vc_get_raw(object)
-    var_which <- which(var_main == colnames(vc_raw))
+    which_main <- which(var_main == colnames(vc_raw))
+    which_controls <- which(colnames(vc_raw) %in% var_controls)
     
-    sweep_lm <- RSWP(vc_raw, var_which)
-    coef <-  sweep_lm[var_which, - var_which]
+    sweep_lm <- RSWP(vc_raw, which_controls)
+    coef <-  sweep_lm[which_main, which_controls]
     res <-  list(coefficients = coef)
     if(add_vcov) {
-      N <- object$df.residual + object$rank
-      df.residual <- N - 2
-      S <- sweep_lm[-var_which, -var_which, drop = FALSE]
-      VC <-  (-S/df.residual) %x% sweep_lm[var_which, var_which, drop = FALSE]
+      # N <- object$df.residual + object$rank
+      df.residual <- object$df.residual - 1
+      S <- sweep_lm[-which_main, -which_main, drop = FALSE]
+      VC <-  (-S/df.residual) %x% sweep_lm[which_main, which_main, drop = FALSE]
       VC_names <-  paste(rep(var_controls, each = length(var_main)),
                          rep(var_main, times = length(var_controls)), sep=":")
       colnames(VC) <- rownames(VC) <- VC_names
@@ -238,8 +239,8 @@ if(FALSE) {
   all.equal(coef(summary(res_lmf)), coef(summary(res_sweep)))
 
   
-  all.equal(vcov(res_lm), vcov(res_lmf), check.attributes = TRUE)
-  all.equal(vcov(res_lm), vcov(res_sweep), check.attributes = TRUE)
+  all.equal(vcov(res_lm), vcov(res_lmf))
+  all.equal(vcov(res_lm), vcov(res_sweep))
   
   vcov(res_lm)
   vcov(res_lmf)
@@ -251,11 +252,22 @@ if(FALSE) {
   
   ## felm
   library(lfe)
-  example(felm, echo=FALSE) # object <-  est
-  res_felm_upd <- reg_aux.felm(object=est, var_main = "x")
-  res_felm_swp <- reg_aux.felm(object=est, var_main = "x", method = "sweep", add_vcov = TRUE)
+  data("Produc", package = "plm")
+  model_felm <- felm(gsp ~ pcap + pc + emp + unemp |state, data = Produc)
+  model_felm_clust <- felm(gsp ~ pcap + pc + emp + unemp |state|0|state, data = Produc)
+
+  res_felm_upd <- reg_aux.felm(object=model_felm, var_main = "pcap")
+  res_felm_swp <- reg_aux.felm(object=model_felm, var_main = "pcap", method = "sweep", add_vcov = TRUE)
   
-  coef(summary(res_felm_upd))
+  res_felm_upd_clust <- reg_aux.felm(object=model_felm_clust, var_main = "pcap")
+  res_felm_swp_clust <- reg_aux.felm(object=model_felm_clust, var_main = "pcap", method = "sweep", add_vcov = TRUE)
+  
+  
+  map_dfr(list("pc", "emp", "unemp"), ~coef(summary(res_felm_upd, lhs = .)) %>%  as.data.frame)
+  coef(summary.reg_aux_lm(res_felm_swp))
+  
+  
+  map_dfr(list("pc", "emp", "unemp"), ~coef(summary(res_felm_upd, lhs = .)) %>%  as.data.frame)
   coef(summary.reg_aux_lm(res_felm_swp))
   
   ## compare
