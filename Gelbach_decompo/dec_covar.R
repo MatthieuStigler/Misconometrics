@@ -83,11 +83,6 @@ reg_aux.lm <- function(object, var_main, var_controls = NULL, method = c("update
     old_class <- class(res)
     class(res) <-  c("reg_aux_lm", "reg_aux", old_class)
   } else  if(method=="update_lmfit") {
-    require(Formula)
-    # string_formula <- as.Formula(sprintf("%s ~ %s", paste(var_controls, collapse=" + "), paste(var_main, collapse=" + ")) )
-    # MF <- model.frame(string_formula, data = object$model)
-    # X <- model.matrix(string_formula, MF)
-    # Y <- model.part(string_formula, data = MF, lhs = 1)
     MM <-  model.matrix(object)
     X <-  MM[, c("(Intercept)", var_main)]
     Y <- MM[, var_controls]
@@ -100,6 +95,8 @@ reg_aux.lm <- function(object, var_main, var_controls = NULL, method = c("update
       resvar <- rss/res$df.residual
       p1 <- 1L:res$rank
       R <- chol2inv(res$qr$qr[p1, p1, drop = FALSE])
+      # Rinv <- diag(rowSums(backsolve(res$qr$qr, diag(res$rank))^2)) not faster, unlike: 
+      # https://stackoverflow.com/questions/39568978/how-to-calculate-variance-of-least-squares-estimator-using-qr-decomposition-in-r
       VC <-  resvar %x% R
       VC_names <-  paste(rep(var_controls, each = length(var_main)+1),
                          rep(c("(Intercept)", var_main), times = length(var_controls)), sep=":")
@@ -128,6 +125,51 @@ reg_aux.lm <- function(object, var_main, var_controls = NULL, method = c("update
       res$df.residual <-  df.residual
     } 
     class(res) <-  c("reg_aux_lm", "reg_aux")
+  }
+  attr(res, "method") <-  method
+  res
+}
+
+
+
+
+reg_aux.felm <-  function(object, var_main, var_controls = NULL, method = c("update", "sweep"),
+         add_vcov = FALSE) {
+  
+  method <-  match.arg(method)
+  
+  if(is.null(var_controls)) {
+    var_all <- attr(terms(object), "term.labels")
+    var_controls <-  var_all[var_all!= var_main]
+  }
+  
+  if(method == "update") {
+    string_formula <- sprintf("%s ~ %s", paste(var_controls, collapse=" + "), paste(var_main, collapse=" + "))  
+    res <- update(object, as.formula(string_formula)) 
+    old_class <- class(res)
+    class(res) <-  c("reg_aux", old_class)
+  } else  if(method=="sweep") {
+    require(ISR3)
+    vc_get_raw <-  function(x) vcov(x) / summary(x)$rse^2
+    vc_raw <- vc_get_raw(object)
+    var_which <- which(var_main == colnames(vc_raw))
+    
+    sweep_lm <- RSWP(vc_raw, var_which)
+    coef <-  sweep_lm[var_which, - var_which]
+    res <-  list(coefficients = coef)
+    if(add_vcov) {
+      N <- object$df.residual + object$rank
+      df.residual <- N - 2
+      S <- sweep_lm[-var_which, -var_which, drop = FALSE]
+      VC <-  (-S/df.residual) %x% sweep_lm[var_which, var_which, drop = FALSE]
+      VC_names <-  paste(rep(var_controls, each = length(var_main)),
+                         rep(var_main, times = length(var_controls)), sep=":")
+      colnames(VC) <- rownames(VC) <- VC_names
+      res$vcov <- VC
+      res$df.residual <-  df.residual
+      class(res) <-  c("reg_aux")
+    } 
+  
   }
   attr(res, "method") <-  method
   res
@@ -183,6 +225,7 @@ if(FALSE) {
   res_li <-  list(res_lm= res_lm, res_lmf = res_lmf, 
                   res_sweep = res_sweep)
   
+  
   lapply(res_li, coef)
   
   all.equal(coef(res_lmf), coef(res_sweep))
@@ -205,6 +248,16 @@ if(FALSE) {
   confint(res_lm)
   confint(res_sweep)
     
+  
+  ## felm
+  library(lfe)
+  example(felm, echo=FALSE) # object <-  est
+  res_felm_upd <- reg_aux.felm(object=est, var_main = "x")
+  res_felm_swp <- reg_aux.felm(object=est, var_main = "x", method = "sweep", add_vcov = TRUE)
+  
+  coef(summary(res_felm_upd))
+  coef(summary.reg_aux_lm(res_felm_swp))
+  
   ## compare
   all.equal(coef(res_lm)[2,], coef(res_sweep))
   all.equal(vcov(res_lm), res_sweep$vcov, check.attributes = FALSE)
