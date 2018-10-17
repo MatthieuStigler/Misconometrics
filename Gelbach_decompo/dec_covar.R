@@ -58,6 +58,177 @@ update.ivreg <- function (object, formula., ..., evaluate = TRUE)
   else call
 }
 
+##### fast auxiliary regression
+reg_aux.default <- function(object, var_main, var_controls = NULL) {
+  
+  if(is.null(var_controls)) var_controls <- attr(terms(reg), "term.labels")
+  
+  string_formula <- sprintf("%s ~ %s", var_controls, paste(var_controls, collapse=" + "))
+  reg_aux_all <- lapply(string_formula2, function(x) update(object, as.formula(x)))  
+}
+
+reg_aux.lm <- function(object, var_main, var_controls = NULL, method = c("update", "update_lmfit",  "sweep"),
+                       add_vcov = FALSE) {
+  
+  method <-  match.arg(method)
+  
+  if(is.null(var_controls)) {
+    var_all <- attr(terms(object), "term.labels")
+    var_controls <-  var_all[var_all!= var_main]
+  }
+  
+  if(method == "update") {
+    string_formula <- sprintf("cbind(%s) ~ %s", toString(var_controls), paste(var_main, collapse=" + "))
+    res <- update(object, as.formula(string_formula)) 
+    old_class <- class(res)
+    class(res) <-  c("reg_aux_lm", "reg_aux", old_class)
+  } else  if(method=="update_lmfit") {
+    require(Formula)
+    # string_formula <- as.Formula(sprintf("%s ~ %s", paste(var_controls, collapse=" + "), paste(var_main, collapse=" + ")) )
+    # MF <- model.frame(string_formula, data = object$model)
+    # X <- model.matrix(string_formula, MF)
+    # Y <- model.part(string_formula, data = MF, lhs = 1)
+    MM <-  model.matrix(object)
+    X <-  MM[, c("(Intercept)", var_main)]
+    Y <- MM[, var_controls]
+    
+    res <- lm.fit(X, Y)
+    class(res) <-  c("reg_aux_lm", "reg_aux")
+    
+    if(add_vcov) {
+      rss <- crossprod(res$residuals)
+      resvar <- rss/res$df.residual
+      p1 <- 1L:res$rank
+      R <- chol2inv(res$qr$qr[p1, p1, drop = FALSE])
+      VC <-  resvar %x% R
+      VC_names <-  paste(rep(var_controls, each = length(var_main)+1),
+                         rep(c("(Intercept)", var_main), times = length(var_controls)), sep=":")
+      colnames(VC) <- rownames(VC) <- VC_names
+      res$vcov <-   VC
+    }
+    
+  } else {
+  
+    require(ISR3)
+    XX <-  crossprod(qr.R(object$qr))
+    var_which <- which(var_main == colnames(XX))
+    var_regs <- c(1, var_which)
+    sweep_lm <- SWP(XX, var_regs)
+    coef <-  sweep_lm[var_regs, - var_regs]
+    res <-  list(coefficients = coef)
+    if(add_vcov) {
+      N <- object$df.residual + object$rank
+      df.residual <- N - 2
+      S <- sweep_lm[-var_regs, -var_regs]
+      VC <-  (-S/df.residual) %x% sweep_lm[var_regs, var_regs]
+      VC_names <-  paste(rep(var_controls, each = length(var_main)+1),
+                         rep(c("(Intercept)", var_main), times = length(var_controls)), sep=":")
+      colnames(VC) <- rownames(VC) <- VC_names
+      res$vcov <- VC
+      res$df.residual <-  df.residual
+    } 
+    class(res) <-  c("reg_aux_lm", "reg_aux")
+  }
+  attr(res, "method") <-  method
+  res
+}
+
+summary.reg_aux_lm <- function(object, ...) {
+  
+  
+  method <-  attr(object, "method")
+  if(method %in% c("sweep", "update_lmfit")) {
+    se_all <- sqrt(diag(object$vcov))
+    se <-  se_all #[-seq(1, by =2, length.out = length(se_all)/2)]
+    est <- c(object$coefficients)
+    tval <- est/se
+    rdf <-  object$df.residual
+    object$coefficients <- cbind(Estimate = est, 
+                                 `Std. Error` = se, 
+                                 `t value` = tval, 
+                                 `Pr(>|t|)` = 2 * pt(abs(tval), rdf, lower.tail = FALSE))  
+    return(object)
+  } else {
+    return(stats:::summary.mlm(object))
+  }
+  
+  
+}
+
+vcov.reg_aux_lm <- function(object, ...) {
+  
+  
+  method <-  attr(object, "method")
+  if(method %in% c("sweep", "update_lmfit")) {
+    object$vcov
+  } else {
+    NextMethod(object)
+  }
+  
+}
+
+
+## test
+if(FALSE) {
+  library(ggplot2)
+
+  model_full_1 <- lm(y ~ lag.quarterly.revenue + price.index + income.level + market.potential, data=freeny)
+  model_heavy <- lm(carat ~ depth + table + price + x +y+z, data = diamonds)
+  
+  res_lm <- reg_aux.lm(object=model_full_1, var_main = "lag.quarterly.revenue")
+  res_lmf <- reg_aux.lm(object=model_full_1, var_main = "lag.quarterly.revenue", method = "update_lmfit", add_vcov = TRUE)
+  res_lmf_heavy <- reg_aux.lm(object=model_heavy, var_main = "depth", method = "update_lmfit", add_vcov = TRUE)
+  res_sweep <- reg_aux.lm(model_full_1, var_main = "lag.quarterly.revenue", method = "sweep", add_vcov = TRUE)
+  
+  res_li <-  list(res_lm= res_lm, res_lmf = res_lmf, 
+                  res_sweep = res_sweep)
+  
+  lapply(res_li, coef)
+  
+  all.equal(coef(res_lmf), coef(res_sweep))
+  all.equal(coef(res_lm), coef(res_sweep))
+  
+  
+  coef(summary(object = res_lm)) 
+  coef(summary(object = res_lmf))
+  coef(summary(object = res_sweep))
+  all.equal(coef(summary(res_lmf)), coef(summary(res_sweep)))
+
+  
+  all.equal(vcov(res_lm), vcov(res_lmf), check.attributes = TRUE)
+  all.equal(vcov(res_lm), vcov(res_sweep), check.attributes = TRUE)
+  
+  vcov(res_lm)
+  vcov(res_lmf)
+  vcov(res_sweep)
+  
+  confint(res_lm)
+  confint(res_sweep)
+    
+  ## compare
+  all.equal(coef(res_lm)[2,], coef(res_sweep))
+  all.equal(vcov(res_lm), res_sweep$vcov, check.attributes = FALSE)
+
+  
+  coef(summary(object = res_lm))
+  coef(summary(object = res_sweep))
+
+  library(broom)
+  tidy(res)  %>% 
+    filter(term !="(Intercept)") %>% 
+    as.matrix()
+  
+  coef(summary(object = res_sweep))
+  
+  library(microbenchmark)
+  microbenchmark(update  = reg_aux.lm(model_full_1, var_main = "lag.quarterly.revenue") %>%  summary,
+                 update_lmf  = reg_aux.lm(model_full_1, var_main = "lag.quarterly.revenue", method = "update_lmfit", add_vcov = TRUE)%>%  summary,
+                 sweep  = reg_aux.lm(model_full_1, var_main = "lag.quarterly.revenue", method = "sweep", add_vcov = TRUE)%>%  summary,
+                 times = 10)
+  
+}
+
+
 
 dec_covar <- function(object, var_main, format = c("wide", "long"),
                       add_coefs = FALSE, conf.int = FALSE, ...) {
