@@ -195,7 +195,7 @@ sim_breaks_MC_x2 %>%
 ```
 
 ```
-## Warning: Removed 115 rows containing non-finite values (stat_density).
+## Warning: Removed 90 rows containing non-finite values (stat_density).
 ```
 
 ```
@@ -268,16 +268,24 @@ get_pred(fit_RF_n22) %>%
 
 ## Extract weights, for given point
 
+We need to use a non-bagged forest!
+
+
+```r
+fit_RF_n3_noBag <- randomForest(y~x +x2, data = df_x2, nodesize = 3, replace = FALSE, sampsize = N, n_tree = 300)
+```
+
+
 Helper function:
 
 
 ```r
 nodes_to_df <-  function(object, df_orig = df) {
-  attr(predict(object, df_orig$x, nodes = TRUE), "nodes") %>% 
+  attr(predict(object, df_orig, nodes = TRUE), "nodes") %>% 
     as_tibble %>% 
     setNames(paste("tree", colnames(.), sep="_")) %>%
-    bind_cols(df_orig %>%  select(x, y, n_row, n_order)) %>% 
-    select(x, y , n_row, n_order, everything())
+    bind_cols(df_orig %>%  select(starts_with("x"), y, n_row, n_order)) %>% 
+    select(starts_with("x"), y , n_row, n_order, everything())
 }
 
 comp_weights_i_df <- function(nodes_df, i =target_obs) {
@@ -295,6 +303,27 @@ comp_weights_i_df <- function(nodes_df, i =target_obs) {
     select(-starts_with("tree_")) %>% 
     select(x, y, is_target, n_row, n_order, weights, everything())
 }
+
+comp_weights_i_df_alter <-  function(object,  i = target_df$n_row) {
+  object_l <- object %>% 
+    gather(tree, node, starts_with("tree")) %>% 
+    group_by(tree) %>% 
+    filter(node == node[n_row ==  i]) %>% 
+    mutate(n_obs_node = n()) %>% 
+    ungroup()
+  
+  res_w <- object_l %>% 
+    # filter(n_obs_node==3) %>% 
+    count(n_row) %>% 
+    arrange(desc(n)) %>% 
+    mutate(weights = 100 * n/sum(n))
+
+  df_x2 %>% 
+    left_join(res_w, by = "n_row") %>% 
+    mutate(is_included =! is.na(weights),
+           is_target = n_row == i) %>% 
+    mutate_at(c("n", "weights"), funs(ifelse(is.na(.), 0, .)))
+}
 ```
 
 
@@ -310,7 +339,7 @@ closest_x_df <-  function(df, target) {
     head(1)
 }
 
-target_df <-  closest_x_df(df, target_val)
+target_df <-  closest_x_df(df_x2, target_val)
 ```
 
 
@@ -320,8 +349,9 @@ Extract for one point: -1.5
 
 
 ```r
-fit_RF_nodes_n22 <- nodes_to_df(fit_RF_n22)
-weights_df_i <- comp_weights_i_df(fit_RF_nodes_n22, i = target_df$n_row)
+fit_RF_nodes_n3 <- nodes_to_df(fit_RF_n3_noBag, df = df_x2)
+# weights_df_i_n3 <- comp_weights_i_df(fit_RF_nodes_n3, i = target_df$n_row)
+weights_df_i_n3_alter <-  comp_weights_i_df_alter(object = fit_RF_nodes_n3, i = target_df$n_row)
 ```
 
 ### Plot weights:
@@ -329,29 +359,63 @@ weights_df_i <- comp_weights_i_df(fit_RF_nodes_n22, i = target_df$n_row)
 
 
 ```r
-weights_df_i %>% 
-  filter(weights> 0.0001) %>% 
+weights_df_i_n3_alter %>% 
+  filter(is_included) %>% 
   ggplot(aes(x = x, y= weights)) +
   geom_vline(xintercept = target_df$x, linetype = 2)+
   geom_point() +
   ggtitle("RF weights")
 ```
 
-![](forest_as_knn_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](forest_as_knn_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
 
 
 
 ```r
-weights_df_i %>% 
-  filter(between(x, -1.8, -1.2)) %>% 
-  ggplot(aes(x = x, y = y, size = weights, colour = weights)) +
+pl_curve_weights <- weights_df_i_n3_alter %>% 
+  ggplot(aes(x = x, y = y, size = weights, colour = is_included)) +
   geom_point() +
   geom_vline(xintercept = target_df$x, linetype = 2) +
   ggtitle("RF weights and neighborhood points") +
-  geom_hline(yintercept = weights_df_i %$% weighted.mean(y, weights), linetype = 2, colour = "red")
+  geom_hline(yintercept = weights_df_i_n3_alter %$% weighted.mean(y, weights), linetype = 2, colour = "blue")
+
+pl_curve_weights
 ```
 
-![](forest_as_knn_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+![](forest_as_knn_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
+
+Zoom:
+
+
+```r
+pl_curve_weights +
+  xlim(c(-2, -1)) +ylim(c(0, 0.5))
+```
+
+```
+## Warning: Removed 911 rows containing missing values (geom_point).
+```
+
+![](forest_as_knn_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
+
+
+
+```r
+w_incl <- weights_df_i_n3_alter %>% 
+  filter(is_included) %>% 
+  summarise_at(c("x", "x2"), funs(min, max))
+  
+weights_df_i_n3_alter %>% 
+  filter(between(x, w_incl$x_min, w_incl$x_max) & 
+           between(x2, w_incl$x2_min, w_incl$x2_max) ) %>% 
+  ggplot(aes(x=x, y = x2, colour = is_included, size =weights)) +
+  geom_point() +
+  geom_vline(xintercept = target_df$x, linetype = 2 )+
+  geom_hline(yintercept = target_df$x2, linetype = 2) +
+  ggtitle("RF weights in the x-x2 space")
+```
+
+![](forest_as_knn_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
 
 
 ## How *adaptive* are the weights?
@@ -368,19 +432,19 @@ sumry_bandw <- function(weight_df) {
   weight_df %>% 
     mutate(diff = abs(x - target_val_here)) %>% 
     arrange(diff) %>% 
-    mutate(weights_noi_cum = cumsum(weights_noi)) %>% 
-    filter(weights_noi_cum <= 0.95) %>% 
+    mutate(weights_cum = cumsum(weights)) %>% 
+    filter(weights_cum <= 95) %>% 
     summarise(knn = n() -1,
               width = sum(abs(range(x - target_val_here))),
               pred = weighted.mean(y, weights))
   
 }
 
-test <-  sumry_bandw(weights_df_i)
+test <-  sumry_bandw(weights_df_i_n3_alter)
 ```
 
 
-Set grid of points to evaluate weights:
+Pick up obs equally spaced over x, to evaluate weights:
 
 
 ```r
@@ -396,7 +460,7 @@ Compute weights (slooow):
 ```r
 grid_df_out <- grid_df %>% 
   # head(2) %>%
-  mutate(search = map(n_row, ~comp_weights_i_df(fit_RF_nodes_n22, .) %>% sumry_bandw)) %>% 
+  mutate(search = map(n_row, ~comp_weights_i_df_alter(fit_RF_nodes_n3, .) %>% sumry_bandw)) %>% 
   unnest(search)
 ```
 
@@ -415,7 +479,7 @@ grid_df_out %>%
   xlab("x")
 ```
 
-![](forest_as_knn_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
+![](forest_as_knn_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
 
 Make sure I got the correct result: not really... how does `predict.randomForest()` work? 
 
@@ -427,5 +491,5 @@ pl_raw +
   ggtitle("Comparing manual vers RF prediction: use a different scheme (bootstrap?!)")
 ```
 
-![](forest_as_knn_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
+![](forest_as_knn_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
 
