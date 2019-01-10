@@ -1,0 +1,58 @@
+---
+title: "vars Impulse response fucntion with ggplot2"
+author: "Matthieu"
+date: "January 10, 2019"
+output:
+  html_document:
+    keep_md: yes
+---
+
+
+## Objective
+
+using package `vars`, the function `irf()` produces Impulse Response Function. I wanted to plot them with `ggplot2`, instead of the built-in `plot()` function. This script provides two functions:
+
+* `as.data.frame.varirf()` converts output intoa  standard long data.frame
+* `irfplot()` : do the whole conversion and plotting
+
+## Example
+
+
+```{r, message= FALSE}
+library(tidyverse)
+library(devtools)
+source_url("https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/irf_for_ggplot/as.data.frame.varirf.R")
+
+## standard VAR analysis
+library(vars)
+data(Canada)
+var.2c <- VAR(Canada, p = 2, type = "const")
+irf_1 <- irf(var.2c, runs = 1000)
+irf_1_rw <- irf(var.2c, impulse = "rw", response =  "rw", boot = TRUE, runs = 500)
+```
+
+
+Plot now all
+
+```{r, message= FALSE}
+irfplot(irf_1)
+
+```
+
+Plot when called with just 1:
+
+```{r}
+irfplot(irf_1_rw)
+```
+
+Check various options of the as.data.frame method:
+
+```{r}
+as.data.frame(x=irf_1, format = "long") %>%  as_tibble()
+as.data.frame(x=irf_1, format = "wide_resp") %>%  as_tibble()
+as.data.frame(x=irf_1, format = "wide_type") %>%  as_tibble()
+```
+
+  
+
+
