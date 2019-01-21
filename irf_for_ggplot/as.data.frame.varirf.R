@@ -59,16 +59,26 @@ as.data.frame.varirf <- function(x, format = c("wide_resp", "long", "wide_type")
 }
 
 irfplot <- function(x) {
-  irf_1_df_w2 <- as.data.frame(x=x, format = "wide_type") %>% 
+  if(inherits(x, "varirf")) df <- as.data.frame(x=x, format = "wide_type")
+  irf_1_df_w2 <-  df %>% 
     mutate(impulse  = paste(impulse, "->"),
            response  = paste("->", response))
-  
-  ggplot(aes(x = n_ahead, y=value_IRF, ymin = value_Lower, ymax = value_Upper), 
-         data= irf_1_df_w2)+
-    facet_grid(impulse ~ response, switch = "y") +
-    geom_smooth(stat="identity") +
-    geom_hline(yintercept =0) +
-    xlab("N ahead") + ylab("")
+
+  if(all(c("value_Upper", "value_Lower") %in% colnames(irf_1_df_w2)))  {
+    pl <- ggplot(aes(x = n_ahead, y=value_IRF, ymin = value_Lower, ymax = value_Upper), 
+                 data= irf_1_df_w2)+
+      facet_grid(impulse ~ response, switch = "y") +
+      geom_smooth(stat="identity") +
+      geom_hline(yintercept =0) +
+      xlab("N ahead") + ylab("")
+  } else {
+    pl <- ggplot(aes(x = n_ahead, y=value_IRF), data= irf_1_df_w2)+
+      facet_grid(impulse ~ response, switch = "y") +
+      geom_line(stat="identity") +
+      geom_hline(yintercept =0) +
+      xlab("N ahead") + ylab("")
+  }
+  pl
 }
 
 
