@@ -1,9 +1,10 @@
 ---
 title: 'R panel plm function with big data: benchmark for speed improvement'
 author: "Matthieu"
-date: "September 15, 2018"
+date: "May 2019"
 output:
   html_document:
+    toc: true
     keep_md: yes
 ---
   

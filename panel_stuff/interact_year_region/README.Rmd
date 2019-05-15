@@ -1,0 +1,226 @@
+---
+title: 'Panel in R: interact time FE with space units'
+author: "Matthieu"
+abstract: "Goal is to add interactions with a time effects and some group, such as region, county etc"
+date: "May 15, 2019"
+output:
+  html_document:
+    toc: true
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+library(plm)
+library(lfe)
+library(broom)
+library(tidyverse)
+```
+
+
+# Summary, refs
+
+Discussed on Stack Overflow:
+
+- [r-plm-and-lm-fixed-effects](https://stackoverflow.com/questions/43636724/r-plm-and-lm-fixed-effects)
+- [fixed-effects-regression-with-state-specific-trends](https://stackoverflow.com/questions/34232834/fixed-effects-regression-with-state-specific-trends)
+
+There is a quite complicated story about counting the degrees of freedom: 
+
+- standard FE2: just need to remove one df
+- year-region: here interacting time with 9 regions implies we should remove (i.e. normalize the parameters) $n_R$ -1=8 here!
+
+`lm()` and `felm()` give same answer (-8), `plm()` not. Getting the fixed-effects in `felm()` shows indeed 8 FE are set to 0. In `plm()`, noen of them is zero, so it is not clear what the transformation is?
+
+
+
+State specific trend: need to convert to integer
+
+```{r, eval=FALSE}
+fe1_Ttrend_plm <- plm(log(gsp) ~  state : as.integer(year), data = produc_plm)
+```
+
+
+# Preliminary: Load data
+
+```{r}
+data("Produc", package = "plm")
+```
+
+Add region:
+
+```{r}
+Produc$year_region <- paste(Produc$year, Produc$region, sep = "_")
+```
+
+
+# With package plm
+
+## Simple reg
+
+```{r}
+zz <- plm(gsp ~ pcap, data = Produc, index = c("state","year"), effect = "twoway")
+summary(zz)
+```
+
+## Reg with year_region
+
+```{r}
+zz2 <- plm(gsp ~ pcap, data = Produc, index = c("state","year_region"), effect = "twoway")
+zz
+zz2
+```
+
+
+Check FE2:
+
+```{r}
+FE_1 <- fixef(zz, effect = "time")
+FE_2 <- fixef(zz2, effect = "time")
+FE_df_1 <- tibble(fe = names(FE_1), value = FE_1) %>% 
+  mutate(year = as.integer(fe))
+FE_df_2 <- tibble(fe = names(FE_2), value = FE_2) %>% 
+  separate(fe, c("year", "region"), remove = FALSE, convert = TRUE)
+FE_df_2
+```
+
+
+Average FE
+
+```{r}
+## ave
+FE_df_2_ave <- FE_df_2 %>% 
+  group_by(year) %>% 
+  summarise(value = mean(value)) %>% 
+  ungroup()
+
+FE_df_both <- rbind(select(FE_df_1, -fe),
+                    FE_df_2_ave) %>% 
+  mutate(type = rep(c("FE_1", "FE_2"), each = nrow(FE_df_1)))
+
+FE_df_both
+```
+
+
+Plot it
+```{r}
+## plot
+FE_df_both %>% 
+  ggplot(aes(x = year, y = value, colour = type))+
+  geom_point()
+```
+
+
+
+
+# With lm
+
+```{r}
+lm1 <- lm(gsp ~ pcap -1 + state + factor(year), data = Produc)
+lm2 <- lm(gsp ~ pcap -1 + state + year_region, data = Produc)
+```
+
+Compare:
+
+```{r}
+all.equal(tidy(lm1) %>% 
+            filter(term=="pcap") %>% 
+            as.data.frame(), 
+          tidy(zz) %>%
+            as.data.frame())
+
+all.equal(tidy(lm2) %>% 
+            filter(term=="pcap") %>% 
+            as.data.frame(), 
+          tidy(zz2) %>%
+            as.data.frame())
+```
+
+
+
+# With package lfe (felm  function)
+
+### Run simple
+
+```{r}
+## year
+felm <- felm(gsp ~ pcap|state+year, data = Produc)
+all.equal(tidy(felm) %>% as.data.frame(), 
+          tidy(zz)%>% as.data.frame())
+
+```
+
+### Run with year_region
+
+```{r}
+## year region
+felm2 <- felm(gsp ~ pcap|state+year_region, data = Produc, exactDOF="rM")
+
+all.equal(coef(felm2), coef(zz2))
+
+## but SE not the same!
+all.equal(tidy(felm2) %>% as.data.frame(), 
+          tidy(zz2)%>% as.data.frame())
+
+## but same as lm!?
+all.equal(tidy(lm2) %>% 
+            filter(term=="pcap") %>% 
+            as.data.frame(), 
+          tidy(felm2) %>%
+            as.data.frame())
+```
+
+Why not same? Df are different! felm has 8 more!
+
+```{r}
+c(felm$df.residual, zz$df.residual)
+c(felm=felm2$df.residual, plm=zz2$df.residual)
+diff(c(felm2$df.residual, zz2$df.residual))
+```
+
+```{r}
+Produc %>% 
+  summarise_at(c("state", "year", "year_region", "region"), n_distinct)
+
+## so technically, we estimate 48+153 = 201
+nrow(Produc) - 201
+
+## This is the df of plm!
+
+## But many FEs are zero!
+getfe(felm) %>% 
+  count(effect_zero=effect==0)
+
+getfe(felm2) %>% 
+  count(effect_zero=effect==0)
+
+
+## plm 
+tibble(n_ind =length(fixef(zz, effect = "individual")),
+       n_time =length(fixef(zz, effect = "time")), 
+       tot = n_ind+n_time)
+
+tibble(n_ind =length(fixef(zz2, effect = "individual")),
+       n_time =length(fixef(zz2, effect = "time")), 
+       tot = n_ind+n_time)
+```
+
+
+
+Do with factors:
+
+```{r}
+Produc2 <- Produc %>% 
+  mutate(region = as.factor(region),
+         year = as.factor(year))
+felm2b <- felm(gsp ~ pcap|state+year:region, data = Produc2)
+
+all.equal(tidy(felm2) %>% as.data.frame(), 
+          tidy(felm2b)%>% as.data.frame())
+```
+
+
+

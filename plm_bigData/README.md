@@ -4,6 +4,7 @@ author: "Matthieu"
 date: "September 15, 2018"
 output:
   html_document:
+    toc: true
     keep_md: yes
 ---
   
@@ -24,6 +25,6 @@ R package for panel data, `plm`, ie vey powerful, yet slow in presence of large 
 2. Package `lfe`, with its function `felm`, and underlying Within funciton `demeanlist`, is much faster
 3. `data.table` seems to offer very interesting speed imporvements, over plm and even over felm (sometimes)
 
-## plots
+## Plots
 
 ![Graphic](figures/benchm_center_dt_lfe.png?raw=true "Title")
