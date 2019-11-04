@@ -1,0 +1,106 @@
+---
+title: "Heterogeienity formula"
+author: "Matthieu"
+date: "November 3, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(matPkg)
+```
+
+# OLS with heterogeneity: weights
+
+Formula from Goodman-Bacon:
+
+$$\hat{\alpha}=\frac{\sum_{i}\left(y_{i}-\bar{y}\right)\left(x_{i}-\bar{x}\right)}{\sum_{i}\left(x_{i}-\bar{x}\right)^{2}}=\frac{\sum_{A}(y-\bar{y})(x-\bar{x})+\sum_{B}(y-\bar{y})(x-\bar{x})}{\sum_{i}(x-\bar{x})^{2}}=
+\frac{n_{A} s_{x y}^{A}+n_{B} s_{x y}^{B}}{s_{x x}^{2}}=
+\frac{n_{A} s_{x x}^{2, A}}{s_{x x}^{2}}\widehat{\alpha}_{A}+\frac{n_{B} s_{x x}^{2, B}}{s_{x x}^{2}} \widehat{\alpha}_{B}$$
+
+But this only holds for when x is group-demeaned!!!! Equivalently when estimating group-specific intercepts
+
+# Simul in R
+
+```{r}
+N <-  10000
+N_a <- 0.4*N
+N_b <- 0.6*N
+x_mu <-  rnorm(N, mean=0)
+x <-  x_mu-mean(x_mu)
+e <-  rnorm(N)
+group <- rep(c("a", "b"), c(N_a, N_b))
+table(group)
+y <-  0.3 + ifelse(group=="a", 0.7*x, 0.9*x)+e
+df <- data.frame(x=x, y=y, group=group, x_mu=x_mu) %>% 
+  group_by(group) %>% 
+  mutate(x_demean=x-mean(x)) %>% 
+  ungroup()
+```
+
+
+Estimate now full
+
+```{r}
+reg_full <- lm(y~x, data=df)
+reg_full_intGroup <- lm(y~group+x, data=df)
+reg_full_demean <- lm(y~x_demean, data=df)
+
+reg_A <- lm(y~x, data=df %>% 
+              filter(group=="a")) 
+reg_B <- lm(y~x, data=df %>% 
+              filter(group=="b"))
+```
+
+
+Compare:
+
+```{r}
+coef(reg_full)
+reg_full_intGroup
+coef(reg_A)
+coef(reg_B)
+```
+
+
+# Reconstruct formula
+
+```{r}
+vars_df <- df %>% 
+  group_by(group) %>% 
+  summarise(var = var(x),
+            var_dem = var(x_demean),
+            cov = cov(y, x)) %>% 
+  rbind(df %>% 
+          summarise(var = var(x),
+                    cov = cov(y, x),
+                    var_dem = var(x_demean)) %>% 
+          mutate(group="all")) %>% 
+  mutate(Ns = c(N_a-1, N_b-1, N_a+N_b-1),
+         sum_x = var * Ns,
+         sum_x_dem = var_dem * Ns,
+         sum_cov = cov * Ns)
+
+vars_df
+
+## check sum same? Very close...
+vars_df[1:2,] %>% 
+  mutate(group=as.character(group)) %>% 
+  mat_add_total_row() %>% 
+  bind_rows(vars_df[3,]) %>% 
+  as.data.frame()
+
+```
+
+```{r}
+weighted.mean(c(coef(reg_A)["x"],coef(reg_B)["x"]),
+              w = vars_df$sum_x[1:2])
+weighted.mean(c(coef(reg_A)["x"], coef(reg_B)["x"]),
+              w = vars_df$sum_x_dem[1:2])
+coef(reg_full_demean)["x_demean"]
+coef(reg_full_intGroup)["x"]
+coef(reg_full)["x"]
+```
+
+
