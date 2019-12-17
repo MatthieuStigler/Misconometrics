@@ -1,0 +1,154 @@
+---
+title: "Anova manual"
+author: "Matthieu"
+date: "December 17, 2019"
+output:
+  html_document:
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Goal
+
+
+Goal of this quick note is to do a manual ANOVA, and see how to relate different levels of factors. 
+
+Facts learned:
+
+ - When a factor is subset of another, `anova` will drop larger factor (cf region and state)
+ - If factor orthogonal, variance is additive
+ - With two hierarchical factors, doing an anova on the residuals of the higher factor will give same results. 
+
+## Prepare data and models
+ 
+```{r, message=FALSE}
+library(plm)
+library(tidyverse)
+library(matPkg)
+
+data(Produc)
+Produc <- as_tibble(Produc) %>% 
+  mutate(zone = if_else(region %in% c("1", "2", "3"), "A", "B"))
+```
+ 
+ 
+Estimate models:
+
+```{r}
+tot_SSR <- var(Produc$unemp)*(nrow(Produc)-1)
+
+
+lm0 <- lm(unemp~1, data=Produc)
+lm1_y <- lm(unemp~year, data=Produc)
+lm1_s <- lm(unemp~state, data=Produc)
+lm1_r <- lm(unemp~region, data=Produc)
+lm1_z <- lm(unemp~zone, data=Produc)
+lm2_ys <- lm(unemp~year+state, data=Produc)
+lm2_yr <- lm(unemp~year+region, data=Produc)
+lm2_sr <- lm(unemp~state+region, data=Produc)
+lm3 <- lm(unemp~year+state+region, data=Produc)
+```
+ 
+Estimate cumulative models
+```{r}
+lm_cum_sr <- lm(unemp~region, data=mutate(Produc, unemp=predict(lm1_s)))
+```
+ 
+
+## Convenience functions
+
+```{r}
+aov_clean <- function(x) {
+  nam <- rlang::ensym(x)
+  as.data.frame(anova(x)) %>% 
+    rownames_to_column(var = "variable") %>% 
+    rename(SSR = `Sum Sq`) %>% 
+    mutate(SSR_perc = 100* SSR/sum(SSR)) %>% 
+    mat_add_total_row() %>% 
+    mutate(model = as.character(nam)) %>% 
+    select(model, variable, Df, SSR, SSR_perc)
+  
+}
+
+aov_alter <- function(x) {
+  nam <- rlang::ensym(x)
+  
+  res <- residuals(x)
+  tibble(model = as.character(nam),
+         variable ="Residuals",
+         SSR = var(res) * (nobs(x)-1),
+         SSR_perc = 100*SSR/tot_SSR)
+}
+
+```
+
+## Check results
+
+```{r}
+aov_clean(x=lm0)
+aov_clean(x=lm1_y)
+aov_clean(x=lm1_s)
+aov_clean(x=lm1_r)
+aov_clean(x=lm2_ys)
+aov_clean(x=lm2_yr)
+aov_clean(x=lm2_sr)
+aov_clean(x=lm3)
+```
+
+### Alternative: residuals
+
+Check with the alter method: just var of residuals
+
+```{r}
+#
+aov_clean(x=lm2_yr)
+aov_alter(x=lm2_yr)
+```
+
+### Decompose hierarchical ones
+
+Check residual approach: if state gives 31%, and region 16%, can I claim that region is generating 16/31 of variance? yes
+
+```{r}
+aov_clean(lm1_s)
+aov_clean(lm1_r)
+aov_clean(lm_cum_sr)
+```
+
+Using residuals only:
+
+```{r}
+cumdiff <- function(x) cumsum(diff(x))
+
+dat <- rbind(aov_alter(lm1_z) %>% 
+               mutate(variable="resid_zone"),
+             aov_alter(lm1_s) %>% 
+               mutate(variable="resid_state"),
+             aov_alter(lm1_r)%>% 
+               mutate(variable="resid_region")) %>% 
+  bind_rows(tibble(model = "all",
+                   variable ="resid_total",
+                   SSR = tot_SSR, SSR_perc=100))
+
+dat
+dat[1:3,] %>% 
+  mutate(var_take = 100 - SSR_perc) %>%   
+  arrange(var_take) %>% 
+  mutate(var_use = c(var_take[1], abs(diff(var_take))),
+         check = cumsum(var_use)) %>% 
+  as.data.frame()
+
+```
+
+Check: want to have same values as in column `var_take`:
+
+```{r}
+rbind(aov_clean(lm1_z),
+      aov_clean(lm1_r),
+      aov_clean(lm1_s)) %>% 
+  filter(!variable %in% c("Total", "Residuals"))
+```
+
