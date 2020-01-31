@@ -1,5 +1,5 @@
 ---
-title: "vars Impulse response fucntion with ggplot2"
+title: "vars Impulse response function with ggplot2"
 author: "Matthieu"
 date: "January 10, 2019"
 output:
