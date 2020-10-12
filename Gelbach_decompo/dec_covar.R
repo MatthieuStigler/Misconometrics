@@ -548,7 +548,7 @@ process_lm_mine <- function(ret, x, conf.int = FALSE, conf.level = .95,
   as_tibble(ret)
 }
 
-assignInNamespace("process_lm", process_lm_mine, "broom")
+# assignInNamespace("process_lm", process_lm_mine, "broom")
 
 #'###############################
 #'## Test
