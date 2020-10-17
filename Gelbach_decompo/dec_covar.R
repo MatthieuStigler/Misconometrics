@@ -79,12 +79,19 @@ update.ivreg <- function (object, formula., ..., evaluate = TRUE)
 
 reg_aux <- function(x)  UseMethod("reg_aux")
 
+## not working!! :-()
+## need
 reg_aux.default <- function(object, var_main, var_controls = NULL) {
+  warning("Actually not working...")
+  if(is.null(var_controls)) var_controls <- attr(terms(object), "term.labels")
   
-  if(is.null(var_controls)) var_controls <- attr(terms(reg), "term.labels")
+  ## exclude main
+  if(var_main %in%var_controls) var_controls <- var_controls[-which(var_controls ==var_main)]
   
+  ## wrong code!
   string_formula <- sprintf("%s ~ %s", var_controls, paste(var_controls, collapse=" + "))
-  reg_aux_all <- lapply(string_formula2, function(x) update(object, as.formula(x)))  
+  print(string_formula)
+  reg_aux_all <- lapply(string_formula, function(x) update(object, as.formula(x)))  
 }
 
 #' @param method Method to use, update_lmfit is meant to be faster
@@ -310,6 +317,10 @@ if(FALSE) {
   microbenchmark(update  = reg_aux.lm(model_full_1, var_main = "lag.quarterly.revenue") %>%  summary,
                  update_lmf  = reg_aux.lm(model_full_1, var_main = "lag.quarterly.revenue", method = "update_lmfit", add_vcov = TRUE)%>%  summary,
                  sweep  = reg_aux.lm(model_full_1, var_main = "lag.quarterly.revenue", method = "sweep", add_vcov = TRUE)%>%  summary,
+                 times = 10)
+  microbenchmark(update  = reg_aux.lm(model_heavy, var_main = "depth") %>%  summary,
+                 update_lmf  = reg_aux.lm(model_heavy, var_main = "depth", method = "update_lmfit", add_vcov = TRUE)%>%  summary,
+                 sweep  = reg_aux.lm(model_heavy, var_main = "depth", method = "sweep", add_vcov = TRUE)%>%  summary,
                  times = 10)
   
 }
