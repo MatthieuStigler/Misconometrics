@@ -15,6 +15,8 @@ This code implements the basics of the paper: Gelbach (2016) *When Do Covariates
 
 It does just do the decomposition, without inference. It does not do the grouping either: in the standard OLS case, R can do a multivariate OLS, so computing the auxiliary regressions for one or multiple LHS variables is done efficiently. User can simply use `tidyverse::group_by` tools to do the grouping. 
 
+Underlying `dec_covar` is the function `reg_aux`, which regresses all covariates in a OLS/panel onto the main regressor of interest. This function might be of use per se, as it is written in an efficient manner: it uses lm and felm capacity to handle multi-response models, and also implements the sweep operator, which can be much faster with large datasets!
+
 
 ## Use
 
