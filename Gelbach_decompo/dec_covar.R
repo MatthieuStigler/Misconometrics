@@ -11,7 +11,7 @@ library(tidyverse)
 library(broom)
 library(Formula)
 
-
+## Utility function get_response
 get_response <- function(x)  
   UseMethod("get_response")
 
@@ -38,6 +38,7 @@ drop_terms <- function(f, dr) {
   form_rem
 }
 
+## Complicated function to update ivreg, just updating code
 update.ivreg <- function (object, formula., ..., evaluate = TRUE) 
 {
   if (is.null(call <- getCall(object))) 
@@ -59,6 +60,25 @@ update.ivreg <- function (object, formula., ..., evaluate = TRUE)
 }
 
 ##### fast auxiliary regression
+
+#' Auxilary regression of covariates on main regressor
+#' 
+#' @param object regression object
+#' @param var_main Main variable
+#' @param var_controls Subset of covariates if desired (NULL as default)
+#' 
+#' @return An extended object of class \code{reg_aux}, on top of the original class
+#' @examples 
+#' model_full_1 <- lm(y ~ lag.quarterly.revenue + price.index + income.level + market.potential, data=freeny)
+#' reg_aux.lm(model_full_1, var_main="lag.quarterly.revenue")
+#' reg_aux.lm(model_full_1, var_main="lag.quarterly.revenue", var_controls="price.index")
+#' 
+#' ## add vcov
+#' vcov(reg_aux.lm(model_full_1, var_main="lag.quarterly.revenue", add_vcov=TRUE))
+
+
+reg_aux <- function(x)  UseMethod("reg_aux")
+
 reg_aux.default <- function(object, var_main, var_controls = NULL) {
   
   if(is.null(var_controls)) var_controls <- attr(terms(reg), "term.labels")
@@ -67,6 +87,8 @@ reg_aux.default <- function(object, var_main, var_controls = NULL) {
   reg_aux_all <- lapply(string_formula2, function(x) update(object, as.formula(x)))  
 }
 
+#' @param method Method to use, update_lmfit is meant to be faster
+#' @param add_vcov Compute also variance-covariance matrix?
 reg_aux.lm <- function(object, var_main, var_controls = NULL, method = c("update", "update_lmfit",  "sweep"),
                        add_vcov = FALSE) {
   
@@ -110,7 +132,7 @@ reg_aux.lm <- function(object, var_main, var_controls = NULL, method = c("update
     XX <-  crossprod(qr.R(object$qr))
     which_main <- which(var_main == colnames(XX))
     var_regs <- c(1, which_main)
-    sweep_lm <- SWP(XX, var_regs)
+    sweep_lm <- ISR3::SWP(XX, var_regs)
     coef <-  sweep_lm[var_regs, - var_regs]
     res <-  list(coefficients = coef)
     if(add_vcov) {
@@ -229,8 +251,7 @@ if(FALSE) {
   
   lapply(res_li, coef)
   
-  all.equal(coef(res_lmf), coef(res_sweep))
-  all.equal(coef(res_lm), coef(res_sweep))
+  all.equal(coef(res_lmf), coef(res_sweep), coef(res_lm))
   
   
   coef(summary(object = res_lm)) 
