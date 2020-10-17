@@ -368,7 +368,7 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
     
     
     # gamma_df <- coef(reg_aux)[var_main,, drop=FALSE] %>%
-    #   as_data_frame() %>%
+    #   as_tibble() %>%
     #   mutate(variable=var_main) %>%
     #   gather(covariate, gamma, -variable)
     
@@ -398,7 +398,7 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
   
   ## add coefs in case:
   if(add_coefs) {
-    betas_main <- data_frame(model = c("full", "base"),
+    betas_main <- tibble(model = c("full", "base"),
                              reg =list(full = object,
                                        base = reg_base)) %>%
       mutate(reg = map(reg, tidy, quick = TRUE)) %>%
@@ -652,7 +652,7 @@ if(FALSE){
   plot_dec(dec_iv)
   
   ## in map calls
-  df <- data_frame(data = list(freeny)) %>%
+  df <- tibble(data = list(freeny)) %>%
     mutate(reg = map(data, ~lm(y ~ lag.quarterly.revenue + price.index + income.level + market.potential, data=.)))#,
            # dec = map(reg, ~update(., y ~ . - lag.quarterly.revenue))) 
   
