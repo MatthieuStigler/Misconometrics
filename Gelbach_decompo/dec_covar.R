@@ -24,7 +24,7 @@ get_response.felm <- function(x) {
 }
 
 drop_terms <- function(f, dr) {
-  f <- as.Formula(f)
+  f <- Formula::as.Formula(f)
   n_rhs <- length(f)[2]
   if(n_rhs==1) {
     form_rem <- paste(". ~ . -", paste(dr, collapse = " - ")) 
@@ -356,13 +356,14 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
     }
     # reg_aux <- update(object, as.formula(string_formula), ...)  
     reg_aux <- update(object, as.formula(string_formula))  
-    gamma_df <- tidy(x=reg_aux, conf.int = conf.int, quick = !conf.int) %>% 
+    gamma_df <- broom::tidy(x=reg_aux, conf.int = conf.int, quick = !conf.int) %>% 
       select(response, term, estimate, contains("conf")) %>% 
       filter(term %in% var_main) %>% 
       rename(variable = term, 
              covariate = response,
              gamma = estimate) %>% 
-      rename_at(vars(contains("conf")), funs(str_replace(., "^conf\\.", "gamma_"))) %>% 
+      rename_with(~str_replace(., "^conf\\.", "gamma_"), contains("conf"))
+      # rename_at(vars(contains("conf")), funs(str_replace(., "^conf\\.", "gamma_"))) %>% 
       select(variable, covariate, contains("gamma"))
     
     
@@ -379,7 +380,8 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
       filter(term %in% var_main) %>%
       rename(variable = term,
              gamma= estimate) %>%
-      rename_at(vars(contains("conf")), funs(str_replace(., "^conf\\.", "gamma_"))) %>% 
+      rename_with(~str_replace(., "^conf\\.", "gamma_"), contains("conf"))
+      # rename_at(vars(contains("conf")), funs(str_replace(., "^conf\\.", "gamma_"))) %>% 
       select(covariate, variable, gamma, contains("gamma"))
   }
   
@@ -388,7 +390,8 @@ dec_covar <- function(object, var_main, format = c("wide", "long"),
     select(term, estimate, contains("conf")) %>% 
     rename(covariate = term,
            beta_K = estimate) %>% 
-    rename_at(vars(contains("conf")), funs(str_replace(., "^conf\\.", "beta_K_"))) %>% 
+    # rename_at(vars(contains("conf")), funs(str_replace(., "^conf\\.", "beta_K_"))) %>% 
+    rename_with(~str_replace(., "^conf\\.", "beta_K_"), contains("conf"))
     filter(covariate %in% var_other) %>%
     left_join(gamma_df, by="covariate") %>%
     mutate(delta = gamma * beta_K)
