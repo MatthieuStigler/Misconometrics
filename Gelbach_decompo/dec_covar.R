@@ -184,7 +184,7 @@ reg_aux.felm <-  function(object, var_main, var_controls = NULL, method = c("upd
     which_main <- which(var_main == colnames(vc_raw))
     which_controls <- which(colnames(vc_raw) %in% var_controls)
     
-    sweep_lm <- RSWP(vc_raw, which_controls)
+    sweep_lm <- ISR3::RSWP(vc_raw, which_controls)
     coef <-  sweep_lm[which_main, which_controls]
     res <-  list(coefficients = coef)
     if(add_vcov) {
