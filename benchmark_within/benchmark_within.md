@@ -18,6 +18,10 @@ The goal here is to compare three ways to obtain the "within" transformation whi
 - `collapse::fwithin` (and `collapse::fhdwithin`)
 - `fixest::demean`
 
+# Preliminary conclusion
+
+For large datasets, `collapse` seems the best tool, since it is faster and actively maintained (as of Nov 2021), contrary to `lfe` which is no more developed and improved. 
+
 # Code and results
 
 
