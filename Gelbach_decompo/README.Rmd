@@ -1,5 +1,5 @@
 ---
-title: 'R script for Gelbach: `When Do Covariates Matter? And Which Ones, and How Much?`'
+title: 'dec_covar: R implementation of Gelbachs covariate decomposition: `When Do Covariates Matter? And Which Ones, and How Much?`'
 author: "Matthieu"
 date: "September 4, 2018"
 output:
@@ -11,7 +11,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Purpose
+# Purpose
 
 This code implements the basics of the paper: Gelbach (2016) *When Do Covariates Matter? And Which Ones, and How Much?* Journal of Labor Economics, 2016, vol. 34(2)
 
@@ -20,23 +20,29 @@ It does just do the decomposition, without inference. It does not do the groupin
 Underlying `dec_covar` is the function `reg_aux`, which regresses all covariates in a OLS/panel onto the main regressor of interest. This function might be of use per se, as it is written in an efficient manner: it uses lm and felm capacity to handle multi-response models, and also implements the sweep operator, which can be much faster with large datasets!
 
 
-## Use
+# Use
 
 The function is: `dec_covar(object = , var_main)`. `var_main` is the variable of interest, as character string.
 
 The function works for `object` of class:
- * OLS regressions computed with `lm()` 
- * panel computed with  `plm()` or `felm()` from package *lfe*
+
+ - OLS regressions computed with `lm()` 
+ - panel computed with  `plm()` or `felm()` from package *lfe*
+
+# Citation
+
+If you use this script in an academic publication, I would appreciate if you could cite it accordingly:
+
+Stigler, Matthieu (2018) "dec_covar, an R implementation of Gelbach's covariate decomposition". https://github.com/MatthieuStigler/Misconometrics/tree/master/Gelbach_decompo
 
 
-## Illustration
+# Illustration
 
 
 1) Source the script:
 
 ```{r cars, message = FALSE}
-library(devtools)
-source_url("https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/Gelbach_decompo/dec_covar.R")
+devtools::source_url("https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/Gelbach_decompo/dec_covar.R")
 ```
 
 2) Run your OLS model, with all the variables. We use here built-in data *swiss*:
@@ -58,7 +64,7 @@ library(knitr)
 kable(dec, format = "markdown")
 ```
 
-### Plots
+## Plots
 
 You can get two plots also. You will need to use the `format="long"` argument, as well as `conf.int=TRUE` (that's just for the beta and gamma though)
 
