@@ -13,8 +13,7 @@ output:
 
 This page documents functions used in the paper *Optimal index insurance and basis risk decomposition: an application to Kenya*.
 
-The functions contain fast algorithms to extract the firt eigenvalue of the covariance/correlation matrix when N>>T (or p>>n) 
-stored in 1_0_eigenvalue_metrics.R used  https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/index_insurance_metrics/
+The functions contain fast algorithms to extract the first eigenvalue of the covariance/correlation matrix when N>>T (or p>>n). Scripts are stored in: [1_0_eigenvalue_metrics.R` used](https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/index_insurance_metrics/)
 
 ## Functions description
 
@@ -30,6 +29,7 @@ Load the script:
 
 ```r
 source("1_0_eigenvalue_metrics.R")
+# source_url("https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/index_insurance_metrics/1_0_eigenvalue_metrics.R")
 ```
 
 
@@ -47,7 +47,7 @@ dim(X_sim)
 
 The data has 30 rows (years T) and 200 columns (fields N).
 
-Compute the $R^2$ using the mean yield as index:
+Compute the individual $R^2$ using the mean yield as index:
 
 
 ```r
@@ -68,7 +68,7 @@ all.equal(r2_mean,
 ## [1] TRUE
 ```
 
-Compute the $R^2$ using the optimal index:
+Compute the individual $R^2$ using the optimal index:
 
 
 ```r
@@ -92,6 +92,8 @@ all.equal(mean(r2_opt),
 
 ### Total R2
 
+Compute the total R2: $\bar{\bar{R}}=1-\Sigma_i SSR_i/\Sigma_i SST_i$
+
 
 ```r
 R2_total_mean <- idx_total_R2(X_sim)
@@ -102,7 +104,7 @@ R2_total_mean
 ## [1] 0.3200817
 ```
 
-This is the same as doing manually $1-\Sigma_i SSR_i/\Sigma_i SST_i$
+This is the same as doing manually with `lm()`:
 
 
 ```r
