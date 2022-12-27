@@ -19,7 +19,7 @@
 #'  ## compare with eigenvalue
 #'  all.equal(mean(idx_r2_general(X_sim, w = w_opt)), 
 #'            eigen(cor(X_sim))$values |> (\(x) x[1]/sum(x))())
-#'            mean(idx_r2_optim(X_sim))
+#'            mean(idx_r2_optimal(X_sim))
 idx_r2_general <- function(df_w, w=matrix(1, ncol=1, nrow=ncol(df_w))){
   S <- cov(df_w)
   if(is.matrix(w) && ncol(w)>1) stop("w should be a vector of length ncol(df_w)")
@@ -30,26 +30,24 @@ idx_r2_general <- function(df_w, w=matrix(1, ncol=1, nrow=ncol(df_w))){
   diag(S_pred)/(diag(S)*sum_S)
 }
 
-#' Figenvalue of the correlation matrix
+#' Eigenvalue of the correlation matrix
 #' 
 #' 
 #' @param df_w dataset in a wide format: T rows and N columns, for each field
 #' @param to_df return data as data.frame?
 #' @param cross Whether to use the cross trick?
-idx_r2_optim <- function(df_w, type = c("cor", "cov"), to_df=FALSE, cross=FALSE){
+idx_r2_optimal <- function(df_w, to_df=FALSE, cross=FALSE){
   
-  type <- match.arg(type)
-  
+
   if(cross){
-    X_scale_col <- scale(df_w, scale = switch(type, "cov" = FALSE, "cor" = TRUE))
-    idx_fo <-  switch(type, "cov" = idx_cov_cross, "cor" = idx_cor_cross)
-    S_cross <- idx_fo(X_scale_col, is_scaled=TRUE)
+    X_scale_col <- scale(df_w, scale = TRUE)
+    # idx_fo <-  switch(type, "cov" = idx_cov_cross, "cor" = idx_cor_cross)
+    S_cross <- idx_cor_cross(X_scale_col, is_scaled=TRUE)
     out <- idx_eigenvec_cross(X_scale_col, S_cross, return_lambda = TRUE)
     vec <- drop(out$vec)
     lambda_1 <- out$lambda
   } else {
-    fo <- switch(type, "cov" = cov, "cor" = cor)
-    eig_dec <- RSpectra::eigs_sym(fo(df_w), k=1)
+    eig_dec <- RSpectra::eigs_sym(cov(df_w), k=1)
     vec <- eig_dec$vectors[,1]
     lambda_1 <- eig_dec$values[1]
   }
@@ -68,7 +66,7 @@ idx_r2_optim <- function(df_w, type = c("cor", "cov"), to_df=FALSE, cross=FALSE)
 #' Total R2: this is from Jong and Kotz, equ (5), remove n-1 and divide by total trace
 #' @param S Covariance matrix
 #' @param w weight vector
-idx_total_R2 <- function(df_w, w=matrix(1, nrow = nrow(S))){
+idx_total_r2_general <- function(df_w, w=matrix(1, nrow = nrow(S))){
   
   S <- cov(df_w)
   # Paper notation: sum(diag(S %*%t(w) %*%solve(w %*%S %*%t(w)) %*% w %*% S ))
@@ -80,6 +78,46 @@ idx_total_R2 <- function(df_w, w=matrix(1, nrow = nrow(S))){
   SSE <- drop(solve(t(w) %*%Sw) %*% crossprod(Sw))
   SST <- sum(diag(S))
   SSE/SST
+}
+
+idx_total_r2_optimal <- function(df_w, cross=TRUE){
+  
+  if(cross){
+    # S <- idx_cov_cross(df_w)
+    X_scale_col <- scale(df_w, scale = FALSE)
+    S_cross <- idx_cov_cross(X_scale_col, is_scaled=TRUE)
+    out <- idx_eigenvec_cross(X_scale_col, S_cross, return_lambda = FALSE)
+    vec <- drop(out)
+  } else {
+    fo <- switch(type, "cov" = cov, "cor" = cor)
+    eig_dec <- RSpectra::eigs_sym(fo(df_w), k=1)
+    vec <- eig_dec$vectors[,1]
+    lambda_1 <- eig_dec$values[1]
+  }
+  
+  ## code from above
+  idx_total_r2_general(df_w, w = vec)
+  
+}
+
+check_funs <- FALSE
+
+if(check_funs) {
+  library(testthat)
+  p <- 200
+  set.seed(1234)
+  X_sim <- idx_mvnorm_sim(n=30, lambda = c(p, rep(1, p-1)))
+  
+  ## manu
+  eig_S_values_manu <- eigen(cov(X_sim))$values
+  eig_S_values_manu_first <- eig_S_values_manu[1]/sum(eig_S_values_manu)
+  
+  
+  testthat::test_that("idx_total_r2_optimal is same as first eigenval",
+                      test_thidx_total_r2_optimal(X_sim),
+            eig_S_values_manu_first)
+            
+  
 }
 
 
@@ -114,10 +152,12 @@ idx_eigenvec_cross <- function(X, S_cross = idx_cov_cross(X), return_lambda=FALS
 
 if(FALSE){
   p <- 200
+  set.seed(1234)
   X_sim <- idx_mvnorm_sim(n=30, lambda = c(p, rep(1, p-1)))
   eig_S_fo <- idx_eigenvec_cross(X_sim)
   eig_R_fo <- idx_eigenvec_cross(scale(X_sim), S_cross = idx_cor_cross(X_sim))
-  
+
+  ## Not always TRUE due to normalization!  
   all.equal(eig_S_fo, eigen(cov(X_sim))$vectors[,1, drop=FALSE])
   all.equal(eig_R_fo, eigen(cor(X_sim))$vectors[,1, drop=FALSE])
 }
@@ -155,8 +195,8 @@ if(FALSE){
   dim(X_sim)
   
   ## Get all R2 to the optimal correlation-index
-  r2_R_opt <- idx_r2_optim(X_sim)
-  r2_S_opt <- idx_r2_optim(X_sim, type = "cov")
+  r2_R_opt <- idx_r2_optimal(X_sim)
+  r2_S_opt <- idx_r2_optimal(X_sim, type = "cov")
   
   
   fully_manual <- function(df_w, type = c("cor", "cov"), cross=TRUE) {
@@ -175,19 +215,18 @@ if(FALSE){
             fully_manual(X_sim))
   v <- apply(X_sim, 2, var)
   w <- v/sum(v)
-  idx_total_R2_fromX(X_sim, return_both = TRUE)
-  idx_total_R2(S = cov(X_sim))
-  all.equal(idx_total_R2_optim(X_sim),
+  idx_total_r2_general(df_w = X_sim)
+  all.equal(idx_total_r2_general_optim(X_sim),
             fully_manual(X_sim, type = "cov", cross=FALSE))
-  mean(idx_r2_optim(X_sim, type = "cov", cross=FALSE))
+  mean(idx_r2_optimal(X_sim, type = "cov", cross=FALSE))
   
   
   ## Check speed
   lambdas_big <- c(p, rep(1, 1000-1))
   X_sim_big <- idx_mvnorm_sim(n=30, lambdas_big)
-  microbenchmark::microbenchmark(fo_cross = mean(idx_r2_optim(X_sim_big, cross = TRUE)),
-                                 fo_no_cross = mean(idx_r2_optim(X_sim_big, cross = FALSE)),
-                                 manual = fully_manual(X_sim_big),
-                                 manual_cross = fully_manual_cross(X_sim_big),
+  microbenchmark::microbenchmark(fo_cross = mean(idx_r2_optimal(X_sim_big, cross = TRUE)),
+                                 fo_no_cross = mean(idx_r2_optimal(X_sim_big, cross = FALSE)),
+                                 manual_cross = fully_manual(X_sim_big),
+                                 manual_no_cross = fully_manual(X_sim_big, cross = FALSE),
                                  times = 20,check = "equal")
 }
