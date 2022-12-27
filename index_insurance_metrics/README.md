@@ -37,7 +37,7 @@ library(testthat)
 ```
 
 
-Generate some data:
+Generate some data using `idx_mvnorm_sim()`:
 
 
 ```r
@@ -74,18 +74,31 @@ test_that("Using 'idx_r2_general' is the same as using lm manually:",
 ## Test passed 😀
 ```
 
-Compute the individual $R^2$ using the optimal index:
+Compute the individual $R^2$ using the optimal index with `idx_r2_optimal()`:
+
+
+```r
+r2_opt <- idx_r2_optimal(X_sim)
+```
+
+Do the same but manually:
 
 
 ```r
 w_opt <- eigen(cor(X_sim))$vectors[,1] * sqrt(1/diag(cov(X_sim))) # Theorem 1, 1.1
-r2_opt <- idx_r2_general(X_sim, w = w_opt)
+r2_opt_manu <- idx_r2_general(X_sim, w = w_opt)
+all.equal(r2_opt_manu, r2_opt)
+```
+
+```
+## [1] TRUE
 ```
 
 Check Theorem 1: $\bar{R}^2(w^*_{cor}) =\lambda^{cor}_1/\Sigma_i \lambda^{cor}_i$:
 
 
 ```r
+## Compute first eigenvalue manually:
 eig_values_manu <- eigen(cor(X_sim))$values
 eig_values_manu_first <- eig_values_manu[1]/sum(eig_values_manu)
 
@@ -166,5 +179,87 @@ test_that("The Total R2 with the optimal vector is also the weighted average of 
 
 ## Benchmark
 
+Functions to get the first eigenvalue (`idx_r2_optimal` and `idx_total_r2_optimal`) have been optimized for the case where T << N (by using the "inverted cor/cov matrix" with is T x T instead of N x N), and by using `RSpectra::eigs_sym` which takes profit of the symmetry of cor/cov matrix and allows ot compute only the first eigenvalue/vector. 
+
+The code illustrates the speed gains with N=1000 and T=30. As the simulation shows below, most of the speed gain is obtained by using the "inverted correlation matrix" with is T x T instead of N x N. 
+
+Prep the data, create a funciton to do it manually:
+
+
+```r
+## testing function:
+fully_manual <- function(df_w, type = c("cor", "cov"), cross=TRUE) {
+    type <- match.arg(type)
+    if(cross) {
+      covr_fo <- switch(type, "cov" = idx_cov_cross, "cor" = idx_cor_cross)
+    } else {
+      covr_fo <- switch(type, "cov" = cov, "cor" = cor)
+    }
+    eigs_covr <- eigen(covr_fo(df_w))$value 
+    eigs_covr[1]/sum(eigs_covr)
+  }
+
+## simulate big data
+lambdas_big <- c(1000, rep(1, 1000-1))
+lambdas_big[1]/sum(lambdas_big)
+```
+
+```
+## [1] 0.5002501
+```
+
+```r
+X_sim_big <- idx_mvnorm_sim(n=30, lambdas_big)
+```
+
+Estimate the first eigenvalue of the correlation matrix
+
+```r
+microbenchmark::microbenchmark(fo_cross = mean(idx_r2_optimal(X_sim_big, cross = TRUE)),
+                               fo_no_cross = mean(idx_r2_optimal(X_sim_big, cross = FALSE)),
+                               manual_cross = fully_manual(X_sim_big),
+                               manual_no_cross = fully_manual(X_sim_big, cross = FALSE),
+                               times = 20,
+                               check = "equal")
+```
+
+```
+## Unit: milliseconds
+##             expr        min         lq       mean     median         uq
+##         fo_cross   2.986692   3.267720   3.793061   3.447777   3.725261
+##      fo_no_cross  31.909704  33.057319  42.670157  35.803299  40.124958
+##     manual_cross   3.325531   3.459369   4.163353   3.589930   3.810346
+##  manual_no_cross 456.282802 468.088342 504.411868 477.260693 544.825107
+##        max neval cld
+##   10.04797    20 a  
+##  153.56017    20  b 
+##   12.29082    20 a  
+##  597.92157    20   c
+```
+
+Estimate the first eigenvalue of the covariance matrix
+
+```r
+microbenchmark::microbenchmark(fo_cross = idx_total_r2_optimal(X_sim_big, cross = TRUE),
+                               fo_no_cross = idx_total_r2_optimal(X_sim_big, cross = FALSE),
+                               manual_cross = fully_manual(X_sim_big, type = "cov"),
+                               manual_no_cross = fully_manual(X_sim_big, cross = FALSE, type = "cov"),
+                               times = 20,
+                               check = "equal")
+```
+
+```
+## Unit: microseconds
+##             expr        min          lq        mean      median         uq
+##         fo_cross    552.062    637.7365    785.1199    653.3010    721.319
+##      fo_no_cross  22477.128  24184.4895  25993.4480  25473.8800  27821.875
+##     manual_cross    825.092    956.0210   1126.0622    992.9075   1093.710
+##  manual_no_cross 446836.443 458979.7775 499052.2690 482053.4860 537114.317
+##         max neval cld
+##    3072.081    20 a  
+##   31854.594    20  b 
+##    3375.411    20 a  
+##  590969.294    20   c
+```
 
 

@@ -38,7 +38,7 @@ library(testthat)
 ```
 
 
-Generate some data:
+Generate some data using `idx_mvnorm_sim()`:
 
 ```{r}
 X_sim <- idx_mvnorm_sim(n=30, lambda = c(200, rep(1, 199)), seed = 123)
@@ -64,16 +64,24 @@ test_that("Using 'idx_r2_general' is the same as using lm manually:",
                        r2_manu, check.attributes=FALSE))
 ```
 
-Compute the individual $R^2$ using the optimal index:
+Compute the individual $R^2$ using the optimal index with `idx_r2_optimal()`:
+
+```{r}
+r2_opt <- idx_r2_optimal(X_sim)
+```
+
+Do the same but manually:
 
 ```{r}
 w_opt <- eigen(cor(X_sim))$vectors[,1] * sqrt(1/diag(cov(X_sim))) # Theorem 1, 1.1
-r2_opt <- idx_r2_general(X_sim, w = w_opt)
+r2_opt_manu <- idx_r2_general(X_sim, w = w_opt)
+all.equal(r2_opt_manu, r2_opt)
 ```
 
 Check Theorem 1: $\bar{R}^2(w^*_{cor}) =\lambda^{cor}_1/\Sigma_i \lambda^{cor}_i$:
 
 ```{r}
+## Compute first eigenvalue manually:
 eig_values_manu <- eigen(cor(X_sim))$values
 eig_values_manu_first <- eig_values_manu[1]/sum(eig_values_manu)
 
@@ -130,5 +138,49 @@ test_that("The Total R2 with the optimal vector is also the weighted average of 
 
 ## Benchmark
 
+Functions to get the first eigenvalue (`idx_r2_optimal` and `idx_total_r2_optimal`) have been optimized for the case where T << N (by using the "inverted cor/cov matrix" with is T x T instead of N x N), and by using `RSpectra::eigs_sym` which takes profit of the symmetry of cor/cov matrix and allows ot compute only the first eigenvalue/vector. 
+
+The code illustrates the speed gains with N=1000 and T=30. As the simulation shows below, most of the speed gain is obtained by using the "inverted correlation matrix" with is T x T instead of N x N. 
+
+Prep the data, create a funciton to do it manually:
+
+```{r}
+## testing function:
+fully_manual <- function(df_w, type = c("cor", "cov"), cross=TRUE) {
+    type <- match.arg(type)
+    if(cross) {
+      covr_fo <- switch(type, "cov" = idx_cov_cross, "cor" = idx_cor_cross)
+    } else {
+      covr_fo <- switch(type, "cov" = cov, "cor" = cor)
+    }
+    eigs_covr <- eigen(covr_fo(df_w))$value 
+    eigs_covr[1]/sum(eigs_covr)
+  }
+
+## simulate big data
+lambdas_big <- c(1000, rep(1, 1000-1))
+lambdas_big[1]/sum(lambdas_big)
+X_sim_big <- idx_mvnorm_sim(n=30, lambdas_big)
+```
+
+Estimate the first eigenvalue of the correlation matrix
+```{r}
+microbenchmark::microbenchmark(fo_cross = mean(idx_r2_optimal(X_sim_big, cross = TRUE)),
+                               fo_no_cross = mean(idx_r2_optimal(X_sim_big, cross = FALSE)),
+                               manual_cross = fully_manual(X_sim_big),
+                               manual_no_cross = fully_manual(X_sim_big, cross = FALSE),
+                               times = 20,
+                               check = "equal")
+```
+
+Estimate the first eigenvalue of the covariance matrix
+```{r}
+microbenchmark::microbenchmark(fo_cross = idx_total_r2_optimal(X_sim_big, cross = TRUE),
+                               fo_no_cross = idx_total_r2_optimal(X_sim_big, cross = FALSE),
+                               manual_cross = fully_manual(X_sim_big, type = "cov"),
+                               manual_no_cross = fully_manual(X_sim_big, cross = FALSE, type = "cov"),
+                               times = 20,
+                               check = "equal")
+```
 
 

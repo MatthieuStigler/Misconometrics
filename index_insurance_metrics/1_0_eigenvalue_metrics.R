@@ -47,7 +47,7 @@ idx_r2_optimal <- function(df_w, to_df=FALSE, cross=FALSE){
     vec <- drop(out$vec)
     lambda_1 <- out$lambda
   } else {
-    eig_dec <- RSpectra::eigs_sym(cov(df_w), k=1)
+    eig_dec <- RSpectra::eigs_sym(cor(df_w), k=1)
     vec <- eig_dec$vectors[,1]
     lambda_1 <- eig_dec$values[1]
   }
@@ -82,44 +82,15 @@ idx_total_r2_general <- function(df_w, w=matrix(1, nrow = nrow(S))){
 
 idx_total_r2_optimal <- function(df_w, cross=TRUE){
   
-  if(cross){
-    # S <- idx_cov_cross(df_w)
-    X_scale_col <- scale(df_w, scale = FALSE)
-    S_cross <- idx_cov_cross(X_scale_col, is_scaled=TRUE)
-    out <- idx_eigenvec_cross(X_scale_col, S_cross, return_lambda = FALSE)
-    vec <- drop(out)
-  } else {
-    fo <- switch(type, "cov" = cov, "cor" = cor)
-    eig_dec <- RSpectra::eigs_sym(fo(df_w), k=1)
-    vec <- eig_dec$vectors[,1]
-    lambda_1 <- eig_dec$values[1]
-  }
-  
-  ## code from above
-  idx_total_r2_general(df_w, w = vec)
+  S <- if(cross) idx_cov_cross(df_w) else cov(df_w)
+  eig1 <- RSpectra::eigs_sym(S, k=1, opts = list(retvec=FALSE))
+  eig1$values/sum(diag(S))
   
 }
 
-check_funs <- FALSE
-
-if(check_funs) {
-  library(testthat)
-  p <- 200
-  set.seed(1234)
-  X_sim <- idx_mvnorm_sim(n=30, lambda = c(p, rep(1, p-1)))
-  
-  ## manu
-  eig_S_values_manu <- eigen(cov(X_sim))$values
-  eig_S_values_manu_first <- eig_S_values_manu[1]/sum(eig_S_values_manu)
-  
-  
-  testthat::test_that("idx_total_r2_optimal is same as first eigenval",
-                      test_thidx_total_r2_optimal(X_sim),
-            eig_S_values_manu_first)
-            
-  
-}
-
+################################
+#'## Utility functions
+################################
 
 ## When we want only first eigens, use XX'/N (T x T) instead of X'X/N (N x N)!
 ## XX' in N x p notation, i.e. X'X in Ishi Yata et al 2014
@@ -228,5 +199,6 @@ if(FALSE){
                                  fo_no_cross = mean(idx_r2_optimal(X_sim_big, cross = FALSE)),
                                  manual_cross = fully_manual(X_sim_big),
                                  manual_no_cross = fully_manual(X_sim_big, cross = FALSE),
-                                 times = 20,check = "equal")
+                                 times = 20,
+                                 check = "equal")
 }
