@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This page documents functions used in the paper *Optimal index insurance and basis risk decomposition: an application to Kenya*.
 
-The functions contain fast algorithms to extract the first eigenvalue of the covariance/correlation matrix when N>>T (or p>>n). Scripts are stored in: [1_0_eigenvalue_metrics.R`](https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/index_insurance_metrics/)
+The functions contain fast algorithms to extract the first eigenvalue of the covariance/correlation matrix when N>>T (or p>>n). Scripts are stored in Github: [1_0_eigenvalue_metrics.R](https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/index_insurance_metrics/)
 
 ## Functions description
 
@@ -31,6 +31,8 @@ Load the script:
 
 ```{r}
 source("1_0_eigenvalue_metrics.R")
+
+## load the testthat package to have pretty test output:
 library(testthat)
 
 ## alternatively, source the script from github:
@@ -47,10 +49,10 @@ dim(X_sim)
 
 The data has 30 rows (years T) and 200 columns (fields N).
 
-Compute the individual $R^2$ using the mean yield as index:
+Compute the individual $R^2$ using the mean yield ($w=1/N$) as index:
 
 ```{r}
-r2_mean <- idx_r2_general(X_sim)
+r2_mean <- idx_r2_general(X_sim, w = rep(1/200, 200))
 ```
 
 This is the same as using `lm()`:
@@ -85,17 +87,17 @@ Check Theorem 1: $\bar{R}^2(w^*_{cor}) =\lambda^{cor}_1/\Sigma_i \lambda^{cor}_i
 eig_values_manu <- eigen(cor(X_sim))$values
 eig_values_manu_first <- eig_values_manu[1]/sum(eig_values_manu)
 
-test_that("The mean of the R2 with th eoptimal vector is the same as the first eigenvalue:",
+test_that("The mean of the R2 with the optimal vector is the same as the first eigenvalue:",
           expect_equal(mean(r2_opt),
                        eig_values_manu_first))
 ```
 
 ### Total R2
 
-Compute the total R2: $\bar{\bar{R}}=1-\Sigma_i SSR_i/\Sigma_i SST_i$
+Compute the total R2: $\bar{\bar{R}}=1-\Sigma_i SSR_i/\Sigma_i SST_i$ using the mean as index:
 
 ```{r}
-R2_total_mean <- idx_total_r2_general(X_sim)
+R2_total_mean <- idx_total_r2_general(X_sim, w = rep(1/200, 200))
 R2_total_mean
 ```
 
@@ -138,11 +140,11 @@ test_that("The Total R2 with the optimal vector is also the weighted average of 
 
 ## Benchmark
 
-Functions to get the first eigenvalue (`idx_r2_optimal` and `idx_total_r2_optimal`) have been optimized for the case where T << N (by using the "inverted cor/cov matrix" with is T x T instead of N x N), and by using `RSpectra::eigs_sym` which takes profit of the symmetry of cor/cov matrix and allows ot compute only the first eigenvalue/vector. 
+Functions to get the first eigenvalue (`idx_r2_optimal` and `idx_total_r2_optimal`) have been optimized for the case where T << N (by using the "inverted cor/cov matrix" with is T x T instead of N x N), and by using `RSpectra::eigs_sym` which takes profit of the symmetry of cor/cov matrix and allows to compute only the first eigenvalue/vector. 
 
 The code illustrates the speed gains with N=1000 and T=30. As the simulation shows below, most of the speed gain is obtained by using the "inverted correlation matrix" with is T x T instead of N x N. 
 
-Prep the data, create a funciton to do it manually:
+Prep the data, create a function to do it manually:
 
 ```{r}
 ## testing function:

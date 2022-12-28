@@ -13,7 +13,7 @@ output:
 
 This page documents functions used in the paper *Optimal index insurance and basis risk decomposition: an application to Kenya*.
 
-The functions contain fast algorithms to extract the first eigenvalue of the covariance/correlation matrix when N>>T (or p>>n). Scripts are stored in: [1_0_eigenvalue_metrics.R`](https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/index_insurance_metrics/)
+The functions contain fast algorithms to extract the first eigenvalue of the covariance/correlation matrix when N>>T (or p>>n). Scripts are stored in Github: [1_0_eigenvalue_metrics.R](https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/index_insurance_metrics/)
 
 ## Functions description
 
@@ -30,6 +30,8 @@ Load the script:
 
 ```r
 source("1_0_eigenvalue_metrics.R")
+
+## load the testthat package to have pretty test output:
 library(testthat)
 
 ## alternatively, source the script from github:
@@ -51,11 +53,11 @@ dim(X_sim)
 
 The data has 30 rows (years T) and 200 columns (fields N).
 
-Compute the individual $R^2$ using the mean yield as index:
+Compute the individual $R^2$ using the mean yield ($w=1/N$) as index:
 
 
 ```r
-r2_mean <- idx_r2_general(X_sim)
+r2_mean <- idx_r2_general(X_sim, w = rep(1/200, 200))
 ```
 
 This is the same as using `lm()`:
@@ -102,7 +104,7 @@ Check Theorem 1: $\bar{R}^2(w^*_{cor}) =\lambda^{cor}_1/\Sigma_i \lambda^{cor}_i
 eig_values_manu <- eigen(cor(X_sim))$values
 eig_values_manu_first <- eig_values_manu[1]/sum(eig_values_manu)
 
-test_that("The mean of the R2 with th eoptimal vector is the same as the first eigenvalue:",
+test_that("The mean of the R2 with the optimal vector is the same as the first eigenvalue:",
           expect_equal(mean(r2_opt),
                        eig_values_manu_first))
 ```
@@ -113,11 +115,11 @@ test_that("The mean of the R2 with th eoptimal vector is the same as the first e
 
 ### Total R2
 
-Compute the total R2: $\bar{\bar{R}}=1-\Sigma_i SSR_i/\Sigma_i SST_i$
+Compute the total R2: $\bar{\bar{R}}=1-\Sigma_i SSR_i/\Sigma_i SST_i$ using the mean as index:
 
 
 ```r
-R2_total_mean <- idx_total_r2_general(X_sim)
+R2_total_mean <- idx_total_r2_general(X_sim, w = rep(1/200, 200))
 R2_total_mean
 ```
 
@@ -179,11 +181,11 @@ test_that("The Total R2 with the optimal vector is also the weighted average of 
 
 ## Benchmark
 
-Functions to get the first eigenvalue (`idx_r2_optimal` and `idx_total_r2_optimal`) have been optimized for the case where T << N (by using the "inverted cor/cov matrix" with is T x T instead of N x N), and by using `RSpectra::eigs_sym` which takes profit of the symmetry of cor/cov matrix and allows ot compute only the first eigenvalue/vector. 
+Functions to get the first eigenvalue (`idx_r2_optimal` and `idx_total_r2_optimal`) have been optimized for the case where T << N (by using the "inverted cor/cov matrix" with is T x T instead of N x N), and by using `RSpectra::eigs_sym` which takes profit of the symmetry of cor/cov matrix and allows to compute only the first eigenvalue/vector. 
 
 The code illustrates the speed gains with N=1000 and T=30. As the simulation shows below, most of the speed gain is obtained by using the "inverted correlation matrix" with is T x T instead of N x N. 
 
-Prep the data, create a funciton to do it manually:
+Prep the data, create a function to do it manually:
 
 
 ```r
@@ -226,15 +228,15 @@ microbenchmark::microbenchmark(fo_cross = mean(idx_r2_optimal(X_sim_big, cross =
 ```
 ## Unit: milliseconds
 ##             expr        min         lq       mean     median         uq
-##         fo_cross   2.986692   3.267720   3.793061   3.447777   3.725261
-##      fo_no_cross  31.909704  33.057319  42.670157  35.803299  40.124958
-##     manual_cross   3.325531   3.459369   4.163353   3.589930   3.810346
-##  manual_no_cross 456.282802 468.088342 504.411868 477.260693 544.825107
-##        max neval cld
-##   10.04797    20 a  
-##  153.56017    20  b 
-##   12.29082    20 a  
-##  597.92157    20   c
+##         fo_cross   2.996057   3.191487   3.859267   3.636570   3.813746
+##      fo_no_cross  32.204291  35.320998  45.238038  40.638125  43.204420
+##     manual_cross   3.152854   3.587471   4.418494   3.818208   4.258894
+##  manual_no_cross 458.205645 486.035717 545.635268 562.012745 587.490566
+##         max neval cld
+##    9.652584    20 a  
+##  155.452985    20  b 
+##   12.463229    20 a  
+##  683.575322    20   c
 ```
 
 Estimate the first eigenvalue of the covariance matrix
@@ -250,16 +252,16 @@ microbenchmark::microbenchmark(fo_cross = idx_total_r2_optimal(X_sim_big, cross 
 
 ```
 ## Unit: microseconds
-##             expr        min          lq        mean      median         uq
-##         fo_cross    552.062    637.7365    785.1199    653.3010    721.319
-##      fo_no_cross  22477.128  24184.4895  25993.4480  25473.8800  27821.875
-##     manual_cross    825.092    956.0210   1126.0622    992.9075   1093.710
-##  manual_no_cross 446836.443 458979.7775 499052.2690 482053.4860 537114.317
+##             expr        min          lq        mean     median          uq
+##         fo_cross    669.723    716.6715    954.4426    761.317    876.6855
+##      fo_no_cross  27266.692  28392.1900  30704.4762  31225.996  32478.6295
+##     manual_cross    914.739   1053.0610   1291.6271   1138.018   1203.8055
+##  manual_no_cross 535457.994 544686.4115 577602.4378 568600.546 606080.9475
 ##         max neval cld
-##    3072.081    20 a  
-##   31854.594    20  b 
-##    3375.411    20 a  
-##  590969.294    20   c
+##    3911.919    20 a  
+##   35287.872    20  b 
+##    4095.436    20 a  
+##  661109.095    20   c
 ```
 
 
