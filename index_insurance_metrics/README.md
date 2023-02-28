@@ -11,7 +11,7 @@ output:
 
 # Intro
 
-This page documents functions used in the paper *Optimal index insurance and basis risk decomposition: an application to Kenya*.
+This page documents functions used in the paper  Stigler, Matthieu, and Lobell, David (2023) “Optimal Index Insurance and Basis Risk Decomposition: An Application to Kenya.” _American Journal of Agricultural Economics_ 1–24. https://doi.org/10.1111/ajae.12375
 
 The functions contain fast algorithms to extract the first eigenvalue of the covariance/correlation matrix when N>>T (or p>>n). Scripts are stored in Github: [1_0_eigenvalue_metrics.R](https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/index_insurance_metrics/)
 
