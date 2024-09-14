@@ -64,6 +64,15 @@ library(knitr)
 kable(dec, format = "markdown")
 ```
 
+This will give you the impact of each coefficient on the comparison between the regression with all covariates and the one with only `Education`
+
+```{r}
+model_base <- lm(Fertility ~ Education, data=swiss)
+coef(model_base)["Education"]-coef(model_full_1)["Education"]
+subset(dec, covariate=="Total")$delta_Education
+```
+
+
 ## Plots
 
 You can get two plots also. You will need to use the `format="long"` argument, as well as `conf.int=TRUE` (that's just for the beta and gamma though)

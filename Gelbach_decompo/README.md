@@ -40,21 +40,21 @@ Stigler, Matthieu (2018) "dec_covar, an R implementation of Gelbach's covariate 
 1) Source the script:
 
 
-```r
+``` r
 devtools::source_url("https://raw.githubusercontent.com/MatthieuStigler/Misconometrics/master/Gelbach_decompo/dec_covar.R")
 ```
 
 2) Run your OLS model, with all the variables. We use here built-in data *swiss*:
 
 
-```r
+``` r
 model_full_1 <- lm(Fertility ~ ., data=swiss)
 ```
 
 3) Use the function `dec_covar` on the OLS output, specify which variable is the *main* one:
 
 
-```r
+``` r
 dec <- dec_covar(object = model_full_1, var_main = "Education")
 ```
 
@@ -70,17 +70,39 @@ dec <- dec_covar(object = model_full_1, var_main = "Education")
 |Total            |         NA|              NA|       0.0085898|
 |Check            |         NA|              NA|       0.0085898|
 
+This will give you the impact of each coefficient on the comparison between the regression with all covariates and the one with only `Education`
+
+
+``` r
+model_base <- lm(Fertility ~ Education, data=swiss)
+coef(model_base)["Education"]-coef(model_full_1)["Education"]
+```
+
+```
+##  Education 
+## 0.00858977
+```
+
+``` r
+subset(dec, covariate=="Total")$delta_Education
+```
+
+```
+## [1] 0.00858977
+```
+
+
 ## Plots
 
 You can get two plots also. You will need to use the `format="long"` argument, as well as `conf.int=TRUE` (that's just for the beta and gamma though)
 
 
-```r
+``` r
 dec_long <- dec_covar(object = model_full_1, var_main = "Education", format = "long", add_coefs = TRUE, conf.int = TRUE)
 ```
 
 
-```r
+``` r
 plot_dec(dec_long) +
   ggtitle("Effect of each covariate on the main variable's coef")
 ```
@@ -88,7 +110,7 @@ plot_dec(dec_long) +
 ![](README_files/figure-html/plot_dec-1.png)<!-- -->
 
 
-```r
+``` r
 plot_gamma_beta(dec_long, add_CI = TRUE) +
   ggtitle("Covariate impact: direct (beta) and indirect (gamma) impact")
 ```
@@ -97,12 +119,13 @@ plot_gamma_beta(dec_long, add_CI = TRUE) +
 
 
 
-```r
+``` r
 plot_gam_bet_del(dec_long)
 ```
 
 ```
-## Warning: Removed 4 rows containing missing values (geom_errorbarh).
+## Warning: Removed 4 rows containing missing values or values outside the scale range
+## (`geom_errorbarh()`).
 ```
 
 ![](README_files/figure-html/plot_gam_bet_del-1.png)<!-- -->
